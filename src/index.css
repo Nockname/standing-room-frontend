@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: theme('colors.white');
+    color: theme('colors.secondary.900');
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+  
+  .btn-secondary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-2.5 px-5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-secondary-400 p-6 hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .stat-card {
+    @apply bg-gradient-to-br from-primary-300 via-primary-400 to-primary-500 rounded-xl shadow-sm border border-primary-600 p-6 hover:shadow-lg transition-all duration-300;
+  }
+
+  .gradient-header {
+    @apply bg-gradient-to-r from-secondary-600 via-secondary-500 to-primary-600 text-white;
+  }
+
+  .input-focus {
+    @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200;
+  }
+
+  .text-muted {
+    @apply text-secondary-600;
+  }
+
+  .bg-subtle {
+    @apply bg-neutral-300;
+  }
+}
