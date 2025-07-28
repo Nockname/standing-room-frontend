@@ -1,4 +1,3 @@
-import React from 'react';
 import { FilterOptions, DayOfWeek } from '../types';
 
 interface FilterPanelProps {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Theater } from 'lucide-react';
 
 const Header: React.FC = () => {

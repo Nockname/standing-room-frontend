@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Show, DayOfWeek } from '../types';
 import { DollarSign, Percent, Clock, TrendingUp, HelpCircle } from 'lucide-react';

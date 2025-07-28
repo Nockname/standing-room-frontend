@@ -1,5 +1,3 @@
-import React from 'react';
-
 const LoadingSkeleton: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
