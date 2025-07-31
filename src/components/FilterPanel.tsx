@@ -118,7 +118,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChange }) =
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Show Type Filters */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -152,6 +152,41 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChange }) =
           </div>
         </div>
 
+        {/* Today's Offerings Filter */}
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-2">
+            Availability
+          </label>
+          <div className="space-y-2">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="todaysOfferings"
+                checked={filters.showTodaysOfferings !== true}
+                onChange={() => onFiltersChange({ 
+                  ...filters, 
+                  showTodaysOfferings: false 
+                })}
+                className="mr-2 border-neutral-500 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-neutral-700">Available in the Last 4 months</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="todaysOfferings"
+                checked={filters.showTodaysOfferings === true}
+                onChange={() => onFiltersChange({ 
+                  ...filters, 
+                  showTodaysOfferings: true 
+                })}
+                className="mr-2 border-neutral-500 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-neutral-700">Available Today</span>
+            </label>
+          </div>
+        </div>
+
         {/* Clear Filters */}
         <div className="flex items-end">
           <button
@@ -163,6 +198,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChange }) =
               showTime: 'all',
               showBroadway: true,
               showOffBroadway: true,
+              showTodaysOfferings: false,
             })}
             className="btn-secondary w-full"
           >

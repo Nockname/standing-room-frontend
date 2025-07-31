@@ -173,6 +173,39 @@ const MobileFilter: React.FC<MobileFilterProps> = ({
                 </label>
               </div>
             </div>
+
+            {/* Today's Offerings */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-neutral-900 mb-3">Availability</h3>
+              <div className="space-y-3">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="todaysOfferingsMobile"
+                    checked={filters.showTodaysOfferings !== true}
+                    onChange={() => onFiltersChange({ 
+                      ...filters, 
+                      showTodaysOfferings: false 
+                    })}
+                    className="mr-3 border-neutral-500 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-base text-neutral-700">Offerings from the Last 4 Months</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="todaysOfferingsMobile"
+                    checked={filters.showTodaysOfferings === true}
+                    onChange={() => onFiltersChange({ 
+                      ...filters, 
+                      showTodaysOfferings: true 
+                    })}
+                    className="mr-3 border-neutral-500 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-base text-neutral-700">Offerings from Today</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -186,6 +219,7 @@ const MobileFilter: React.FC<MobileFilterProps> = ({
                 showTime: 'all',
                 showBroadway: true,
                 showOffBroadway: true,
+                showTodaysOfferings: false,
               })}
               className="flex-1 py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md"
             >

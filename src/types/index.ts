@@ -9,6 +9,8 @@ export interface Show {
   average_discount?: number;
   last_seen?: string;
   days_available?: DayAvailability[];
+  availableToday?: boolean; // Whether show has discounts available today
+  reviews?: string; // NYT review URL
 }
 
 export interface DayAvailability {
@@ -37,5 +39,6 @@ export interface FilterOptions {
   showTime: 'all' | 'matinee' | 'evening';
   showBroadway?: boolean;
   showOffBroadway?: boolean;
+  showTodaysOfferings?: boolean;
   searchQuery?: string;
 }

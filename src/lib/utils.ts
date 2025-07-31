@@ -134,10 +134,19 @@ export const getPopularDays = (shows: Show[]): Array<{ day: DayOfWeek; averageAv
 
   shows.forEach(show => {
     if (show.days_available) {
-      show.days_available.forEach(dayData => {
-        const day = dayData.day_of_week as DayOfWeek;
-        dayStats[day].total += dayData.availability_percentage;
-        dayStats[day].count += 1;
+      // For each day of the week, increment count by 1
+      Object.keys(dayStats).forEach(day => {
+      dayStats[day as DayOfWeek].count += 1;
+      // If the show has data for this day, add its availability
+      const dayData = show.days_available!.find(d => d.day_of_week === day);
+      if (dayData) {
+        dayStats[day as DayOfWeek].total += dayData.availability_percentage;
+      }
+      });
+      } else {
+      // If no days_available, still increment count for all days
+      Object.keys(dayStats).forEach(day => {
+      dayStats[day as DayOfWeek].count += 1;
       });
     }
   });
@@ -215,4 +224,59 @@ export const getTopShowsByRecentAppearances = (shows: Show[]): {
     broadway: broadwayShows,
     nonBroadway: nonBroadwayShows
   };
+};
+
+// Get popular days with show time filter support
+export const getPopularDaysByShowTime = (
+  shows: Show[], 
+  showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'
+): Array<{ day: DayOfWeek; averageAvailability: number }> => {
+  const dayStats: Record<DayOfWeek, { total: number; count: number }> = {
+    Monday: { total: 0, count: 0 },
+    Tuesday: { total: 0, count: 0 },
+    Wednesday: { total: 0, count: 0 },
+    Thursday: { total: 0, count: 0 },
+    Friday: { total: 0, count: 0 },
+    Saturday: { total: 0, count: 0 },
+    Sunday: { total: 0, count: 0 },
+  };
+
+  shows.forEach(show => {
+    if (show.days_available) {
+      // For each day of the week, increment count by 1
+      Object.keys(dayStats).forEach(day => {
+        dayStats[day as DayOfWeek].count += 1;
+        // If the show has data for this day, add its availability
+        const dayData = show.days_available!.find(d => d.day_of_week === day);
+        if (dayData) {
+          // When filtering by show time, we need to adjust the availability
+          // For now, we'll use the overall day availability since we don't have
+          // show time-specific data in the day availability structure
+          // This could be enhanced if we add show time data to the days_available structure
+          let adjustedAvailability = dayData.availability_percentage;
+          
+          // Apply show time filter adjustment
+          if (showTimeFilter === 'matinee' || showTimeFilter === 'evening') {
+            // Estimate that matinee/evening shows represent roughly 50% of total availability
+            // This is a simplification - ideally we'd have separate matinee/evening availability data
+            adjustedAvailability = dayData.availability_percentage * 0.5;
+          }
+          
+          dayStats[day as DayOfWeek].total += adjustedAvailability;
+        }
+      });
+    } else {
+      // If no days_available, still increment count for all days
+      Object.keys(dayStats).forEach(day => {
+        dayStats[day as DayOfWeek].count += 1;
+      });
+    }
+  });
+
+  return Object.entries(dayStats)
+    .map(([day, stats]) => ({
+      day: day as DayOfWeek,
+      averageAvailability: stats.count > 0 ? stats.total / stats.count : 0,
+    }))
+    .sort((a, b) => b.averageAvailability - a.averageAvailability);
 };

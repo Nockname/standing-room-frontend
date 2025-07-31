@@ -101,7 +101,7 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
 
   return (
     <div 
-      className="card hover:shadow-lg transition-all duration-200 relative cursor-pointer hover:scale-[1.02]"
+      className="card hover:shadow-lg transition-all duration-200 relative cursor-pointer hover:scale-[1.02] flex flex-col h-full"
       onClick={handleCardClick}
     >
       {/* Loading overlay for filter changes */}
@@ -113,10 +113,17 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
           </div>
         </div>
       )}
+      
+      {/* Header section - title and tags */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className="text-lg font-bold text-neutral-900 mb-1">{show.title}</h3>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap min-h-[24px]">
+            {show.availableToday && (
+              <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-accent-700 text-white">
+                Available Today
+              </span>
+            )}
             {show.category && (
               <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
                 show.category === 'Broadway' 
@@ -135,7 +142,9 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Main stats section */}
+      <div className="flex-1 flex flex-col">
+        <div className="space-y-3 flex-grow">
         {/* Availability */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -200,9 +209,10 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
             </span>
           </div>
         )}
+        </div>
       </div>
 
-      {/* Weekly breakdown preview (only show if no specific day selected) */}
+      {/* Weekly breakdown preview (only show if no specific day selected) - fixed at bottom */}
       {!selectedDay && show.days_available && show.days_available.length > 0 && (
         <div className="mt-4 pt-4 border-t border-neutral-500">
           <h4 className="text-sm font-medium text-neutral-800 mb-2">Weekly Breakdown</h4>

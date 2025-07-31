@@ -22,6 +22,7 @@ function HomePage() {
     showTime: 'all',
     showBroadway: true,
     showOffBroadway: true,
+    showTodaysOfferings: false,
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -54,9 +55,7 @@ function HomePage() {
   const loadShows = async () => {
     try {
       setLoading(true);
-      console.log('Starting to load shows...');
       const data = await fetchShows(filters.showTime);
-      console.log('Loaded shows data:', data);
       setShows(data);
     } catch (error) {
       console.error('Error loading shows:', error);
@@ -67,8 +66,6 @@ function HomePage() {
   };
 
   const applyFilters = () => {
-    console.log('Applying filters:', filters);
-    
     let filtered = [...shows];
 
     // Apply search filter
@@ -94,6 +91,11 @@ function HomePage() {
         if (!filters.showOffBroadway && show.category !== 'Broadway') return false;
         return true;
       });
+    }
+
+    // Apply today's offerings filter
+    if (filters.showTodaysOfferings) {
+      filtered = filtered.filter(show => show.availableToday === true);
     }
 
     // Apply sorting
@@ -150,12 +152,10 @@ function HomePage() {
       return filters.sortOrder === 'desc' ? -comparison : comparison;
     });
 
-    console.log('Filtered shows:', filtered.length);
     setFilteredShows(filtered);
   };
 
   const handleFiltersChange = (newFilters: FilterOptions) => {
-    console.log('Filters changed:', newFilters);
     setFilters(newFilters);
   };
 
@@ -168,6 +168,7 @@ function HomePage() {
       showTime: 'all',
       showBroadway: true,
       showOffBroadway: true,
+      showTodaysOfferings: false,
     });
   };
 
@@ -260,6 +261,7 @@ function HomePage() {
                       key={show.id} 
                       show={show} 
                       selectedDay={filters.dayOfWeek === 'all' ? undefined : filters.dayOfWeek}
+                      showTime={filters.showTime}
                       isFilterLoading={filterLoading}
                     />
                   ));

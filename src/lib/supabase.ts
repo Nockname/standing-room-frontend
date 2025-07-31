@@ -3,10 +3,31 @@ import { Show } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://exgwstrejyolhvwtzijh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4Z3dzdHJlanlvbGh2d3R6aWpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyOTgwMjgsImV4cCI6MjA2ODg3NDAyOH0.w0-FOpxjJnTLYxyS5frE9olOh9LnJVJ1k_zYeYE7bwE';
+const discountDatabase = import.meta.env.VITE_DISCOUNT_DATABASE || 'TKTS Discounts Fake';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
+
+// Calculate date string for 4 months ago
+const today = new Date();
+const fourMonthsAgo = new Date(today);
+fourMonthsAgo.setMonth(today.getMonth() - 4);
+const fourMonthsAgoStr = fourMonthsAgo.toISOString().split('T')[0];
+
+const endDate = new Date(today);
+endDate.setDate(today.getDate() + 1); // Add 1 day buffer
+
+const endDateStr = endDate.toISOString().split('T')[0];
+
+
+const firstLogDate = parseLocalDate('2025-07-23');
+// For fake data, use the full 4-month period; for real data, use the later of firstLogDate or fourMonthsAgo
+const beginDate = discountDatabase === 'TKTS Discounts Fake' ? fourMonthsAgo : (firstLogDate < fourMonthsAgo ? fourMonthsAgo : firstLogDate);
+
+// Calculate total days in the last 4 months
+const totalDaysInPeriod = Math.ceil((today.getTime() - beginDate.getTime()) / (1000 * 60 * 60 * 24));
+
 
 /**
  * Parses a date string in 'YYYY-MM-DD' format as a local Date object.
@@ -23,15 +44,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
   try {
-    console.log('🔄 Loading TKTS shows from Supabase...');
-    console.log('📊 Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-    console.log('🔑 API Key length:', import.meta.env.VITE_SUPABASE_ANON_KEY?.length);
-    
-    // Test basic connection first
-    console.log('🧪 Testing Supabase connection...');
-    
     // First, get all shows
-    console.log('📋 Fetching Show Information...');
     const { data: showsData, error: showsError } = await supabase
       .from('Show Information')
       .select('*, theater');
@@ -47,38 +60,43 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
       throw showsError;
     }
 
-    console.log('✅ Shows data fetched successfully:', showsData?.length || 0, 'shows');
-    console.log('📋 Sample show data:', showsData?.[0]);
 
     // Then get all discount data with pagination to ensure we get everything
-    console.log('💰 Fetching TKTS Discounts Fake (with pagination)...');
     
     let allDiscountsData: any[] = [];
     const pageSize = 1000;
     let currentPage = 0;
     let hasMoreData = true;
-    
+
+    // get all data from the past 4 months
     while (hasMoreData) {
-      const { data: pageData, error: discountsError } = await supabase
-        .from('TKTS Discounts Fake')
+      let query = supabase
+        .from(discountDatabase)
         .select('*')
-        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1)
-        .order('id', { ascending: true }); // Ensure consistent ordering
-      
+        .gte('performance_date', fourMonthsAgoStr)
+        .order('id', { ascending: true })
+        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
+
+      // Only apply show time filter if not 'all'
+      if (showTimeFilter !== 'all') {
+        query = query.eq('is_matinee', showTimeFilter === 'matinee');
+      }
+
+      const { data: pageData, error: discountsError } = await query;
+
       if (discountsError) {
-        console.error('❌ Error fetching discounts page:', currentPage, discountsError);
-        console.error('💰 Discounts error details:', {
-          message: discountsError.message,
-          details: discountsError.details,
-          hint: discountsError.hint,
-          code: discountsError.code
-        });
-        throw discountsError;
+      console.error('❌ Error fetching discounts page:', currentPage, discountsError);
+      console.error('💰 Discounts error details:', {
+        message: discountsError.message,
+        details: discountsError.details,
+        hint: discountsError.hint,
+        code: discountsError.code
+      });
+      throw discountsError;
       }
 
       if (pageData && pageData.length > 0) {
         allDiscountsData = allDiscountsData.concat(pageData);
-        console.log(`✅ Fetched page ${currentPage + 1}: ${pageData.length} discounts (total: ${allDiscountsData.length})`);
         
         // Check if we got a full page, if not we're done
         hasMoreData = pageData.length === pageSize;
@@ -88,16 +106,8 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
       }
     }
 
-    console.log('✅ All discounts data fetched successfully:', allDiscountsData.length, 'total discounts');
-    console.log('💰 Sample discount data:', allDiscountsData?.[0]);
-
-    // Apply show time filter if specified
-    let discountsData = allDiscountsData;
-    if (showTimeFilter !== 'all') {
-      const isMatineeFilter = showTimeFilter === 'matinee';
-      discountsData = allDiscountsData.filter(discount => discount.is_matinee === isMatineeFilter);
-      console.log(`🎭 Filtered to ${showTimeFilter} shows: ${discountsData.length} discounts (from ${allDiscountsData.length} total)`);
-    }
+    // All filtering is now done in the query, so we can use the data directly
+    const discountsData = allDiscountsData;
 
     // If we have no data, return empty array but log it
     if (!showsData || showsData.length === 0) {
@@ -110,46 +120,21 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
       return [];
     }
 
-    // Calculate date range for last 4 months (extending to capture fake data)
-    const today = new Date();
-    const fourMonthsAgo = new Date(today);
-    fourMonthsAgo.setMonth(today.getMonth() - 4);
-    
-    // Extend the end date by a few days to ensure we capture all fake data
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + 1); // Add 1 day buffer
-    
-    const fourMonthsAgoStr = fourMonthsAgo.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
-    
-    console.log(`📅 Calculating availability for last 4 months: ${fourMonthsAgoStr} to ${endDateStr}`);
-    console.log(`📅 Today's actual date: ${new Date().toLocaleDateString()} (${today.toISOString().split('T')[0]})`);
-    console.log(`📅 Four months ago: ${fourMonthsAgo.toLocaleDateString()} (${fourMonthsAgoStr})`);
-    
-    // Calculate total days in the last 4 months
-    const totalDaysInPeriod = Math.ceil((today.getTime() - fourMonthsAgo.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Calculate days per day-of-week in the last 3 months
+    // Calculate days per day-of-week in the last 4 months
     const daysPerWeek: { [key: string]: number } = {
       Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0
     };
     
-    for (let d = new Date(fourMonthsAgo); d <= today; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(beginDate); d <= today; d.setDate(d.getDate() + 1)) {
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayName = dayNames[d.getDay()];
       daysPerWeek[dayName]++;
     }
-    
-    console.log('� Days per week in last 3 months:', daysPerWeek);
-    console.log('📊 Total days in period:', totalDaysInPeriod);
 
     // Transform the data to match our expected format
-    console.log('🔄 Transforming data...');
     const transformedShows = showsData?.map(show => {
       // Find all discounts for this show
-      const showDiscounts = discountsData?.filter(discount => discount.show_id === show.show_id) || [];
-      console.log(`📊 Show "${show.show_name}" has ${showDiscounts.length} discount entries`);
-      
+      const showDiscounts = discountsData?.filter(discount => discount.show_id === show.show_id) || [];      
       // Calculate statistics from discount data
       let avgDiscount = 0;
       let availabilityFrequency = 0;
@@ -172,20 +157,8 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
           if (!discount.performance_date) return false;
           const performanceDate = discount.performance_date;
           const isInRange = performanceDate >= fourMonthsAgoStr && performanceDate <= endDateStr;
-          if (!isInRange && showDiscounts.indexOf(discount) === 0) {
-            // Debug log for the first discount that's filtered out
-            console.log(`🔍 Date filter debug for "${show.show_name}":`, {
-              performanceDate,
-              fourMonthsAgoStr,
-              endDateStr,
-              isInRange,
-              comparison: `${performanceDate} >= ${fourMonthsAgoStr} && ${performanceDate} <= ${endDateStr}`
-            });
-          }
           return isInRange;
         });
-
-        console.log(`🔍 Show "${show.show_name}": ${showDiscounts.length} total discounts, ${recentDiscounts.length} in date range`);
 
         // Calculate overall availability: unique performance dates in last 4 months / total days in period
         // Use Set to get unique dates only, avoiding double-counting multiple discounts on same day
@@ -198,8 +171,6 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
         
         const rawAvailability = uniqueDaysWithDiscounts / totalDaysInPeriod;
         availabilityFrequency = Math.min(rawAvailability, 1.0);
-
-        console.log(`📊 Show "${show.show_name}" availability: ${uniqueDaysWithDiscounts} unique days with discounts / ${totalDaysInPeriod} total days = ${(availabilityFrequency * 100).toFixed(1)}%`);
 
         // Get most recent availability
         const sortedDiscounts = showDiscounts.sort((a, b) => 
@@ -252,9 +223,7 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
         const daysOfThisTypeInPeriod = daysPerWeek[dayName] || 1; // avoid division by zero
         const rawDayAvailability = uniqueDaysOfThisTypeWithDiscounts / daysOfThisTypeInPeriod;
         availabilityPercentage = Math.min(rawDayAvailability * 100, 100); // Cap at 100%
-        
-        console.log(`📊 Day ${dayName}: ${uniqueDaysOfThisTypeWithDiscounts} unique days with discounts / ${daysOfThisTypeInPeriod} total ${dayName}s = ${availabilityPercentage.toFixed(1)}%`);
-        
+                
         return {
           day_of_week: dayName,
           availability_percentage: availabilityPercentage, // Normalize
@@ -269,6 +238,26 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
         };
       });
 
+      // Check if show is available today
+      const todayStr = today.toISOString().split('T')[0];
+      const availableToday = showDiscounts.some(discount => {
+        if (!discount.last_available_time || !discount.performance_date) return false;
+        
+        // Extract date from last_available_time (format: "2025-07-31T16:25:53+00:00")
+        // or use performance_date as fallback
+        let lastAvailableDate;
+        if (discount.last_available_time.includes('T')) {
+          lastAvailableDate = discount.last_available_time.split('T')[0];
+        } else {
+          lastAvailableDate = discount.performance_date;
+        }
+        
+        return lastAvailableDate === todayStr;
+      });
+
+      // Get NYT review URL from show information (not discount data)
+      const reviewUrl = show.nyt_review ? show.nyt_review.replace(/\$0$/, '') : undefined;
+
       const transformed = {
         id: show.show_id.toString(),
         title: show.show_name,
@@ -280,14 +269,14 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
           : undefined,
         average_discount: avgDiscount > 0 ? Math.round(avgDiscount) : undefined,
         last_seen: lastSeen ? new Date(lastSeen).toLocaleDateString('en-US') : undefined,
-        days_available: daysAvailable.length > 0 ? daysAvailable : undefined
+        days_available: daysAvailable.length > 0 ? daysAvailable : undefined,
+        availableToday: availableToday,
+        reviews: reviewUrl
       };
 
-      console.log(`✅ Transformed show:`, transformed);
       return transformed;
     }) || [];
 
-    console.log('🎉 Successfully transformed', transformedShows.length, 'shows');
     return transformedShows;
     
   } catch (error) {
@@ -301,15 +290,13 @@ export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' =
 // Get weekly cumulative discount trends from the Weekly Statistics table
 export async function fetchRecentDiscountTrends() {
   try {
-    console.log('📈 Fetching weekly discount trends from Weekly Statistics table...');
     
     // Get today and 1 year ago for filtering
     const today = new Date();
     const oneYearAgo = new Date(today);
     oneYearAgo.setFullYear(today.getFullYear() - 1);
     const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
-    
-    console.log(`📅 Fetching weekly trends from ${oneYearAgoStr} to today`);
+
 
     // Fetch weekly statistics from the last year, ordered by week
     const { data: weeklyStats, error } = await supabase
@@ -322,9 +309,6 @@ export async function fetchRecentDiscountTrends() {
       console.error('❌ Error fetching weekly statistics:', error);
       throw error;
     }
-
-    console.log('✅ Weekly statistics fetched successfully:', weeklyStats?.length || 0, 'weeks');
-    console.log('📊 Sample weekly stat:', weeklyStats?.[0]);
 
     if (!weeklyStats || weeklyStats.length === 0) {
       console.warn('⚠️ No weekly statistics found in database for the last year');
@@ -355,10 +339,6 @@ export async function fetchRecentDiscountTrends() {
       };
     });
 
-    console.log('📈 Transformed weekly trends:', transformedData.length, 'weeks');
-    console.log('📊 Sample transformed data:', transformedData[0]);
-    console.log('📊 Date range:', transformedData[0]?.weekStart, 'to', transformedData[transformedData.length - 1]?.weekStart);
-
     return transformedData;
     
   } catch (error) {
@@ -372,8 +352,6 @@ export async function fetchRecentDiscountTrends() {
 // Get shows with actual TKTS appearances in the last week
 export async function getShowsWithRecentAppearances(shows: Show[]) {
   try {
-    console.log('📊 Fetching recent TKTS appearances for shows...');
-    
     // Get today and 1 week ago
     const today = new Date();
     const oneWeekAgo = new Date();
@@ -383,7 +361,7 @@ export async function getShowsWithRecentAppearances(shows: Show[]) {
 
     // Fetch all discounts from the last week
     const { data: recentDiscounts, error } = await supabase
-      .from('TKTS Discounts Fake')
+      .from(discountDatabase)
       .select('show_id, performance_date')
       .gte('performance_date', oneWeekAgoStr)
       .lte('performance_date', todayStr);
@@ -392,8 +370,6 @@ export async function getShowsWithRecentAppearances(shows: Show[]) {
       console.error('❌ Error fetching recent discounts:', error);
       throw error;
     }
-
-    console.log('✅ Recent discounts fetched:', recentDiscounts?.length || 0);
 
     // Count all individual appearances (including multiple per day)
     const showAppearanceCounts: { [showId: string]: number } = {};
@@ -428,9 +404,6 @@ export async function getShowsWithRecentAppearances(shows: Show[]) {
       .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
       .slice(0, 3);
 
-    console.log('📊 Top Broadway shows by recent appearances:', broadwayShows.map(s => `${s.title}: ${s.recentActivityScore}`));
-    console.log('📊 Top Off-Broadway shows by recent appearances:', nonBroadwayShows.map(s => `${s.title}: ${s.recentActivityScore}`));
-
     return {
       broadway: broadwayShows,
       nonBroadway: nonBroadwayShows
@@ -447,10 +420,9 @@ export async function getShowsWithRecentAppearances(shows: Show[]) {
 }
 
 // Fetch detailed information for a specific show
+// This function is used on a show's specific web page
 export async function fetchShowDetails(showId: number): Promise<Show> {
   try {
-    console.log('🔍 Fetching details for show ID:', showId);
-    
     const { data: showData, error: showError } = await supabase
       .from('Show Information')
       .select('*')
@@ -468,7 +440,7 @@ export async function fetchShowDetails(showId: number): Promise<Show> {
 
     // Get aggregated discount data for this show
     const { data: discountsData, error: discountsError } = await supabase
-      .from('TKTS Discounts Fake')
+      .from(discountDatabase)
       .select('*')
       .eq('show_id', showId);
     
@@ -512,19 +484,22 @@ export async function fetchShowDetails(showId: number): Promise<Show> {
       frequency_count: stats.count
     }));
 
+    // Get NYT review URL from show data
+    const reviewUrl = showData.nyt_review ? showData.nyt_review.replace(/\$0$/, '') : undefined;
+
     const show: Show = {
       id: showData.id.toString(),
-      title: showData.title,
+      title: showData.show_name,
       theater: showData.theater,
-      category: showData.category,
+      category: showData.is_broadway ? 'Broadway' : 'Off-Broadway',
       availability_frequency: discounts.length / 100, // Normalize to 0-1
       average_discount: avgDiscount,
       average_price_range: avgLowPrice > 0 && avgHighPrice > 0 ? [Math.round(avgLowPrice), Math.round(avgHighPrice)] : undefined,
       last_seen: lastSeen,
-      days_available: daysAvailable
+      days_available: daysAvailable,
+      reviews: reviewUrl
     };
 
-    console.log('✅ Show details fetched successfully:', show.title);
     return show;
 
   } catch (error) {
@@ -536,10 +511,8 @@ export async function fetchShowDetails(showId: number): Promise<Show> {
 // Fetch discount history for a specific show
 export async function fetchShowDiscountHistory(showId: number): Promise<any[]> {
   try {
-    console.log('📈 Fetching discount history for show ID:', showId);
-    
     const { data, error } = await supabase
-      .from('TKTS Discounts Fake')
+      .from(discountDatabase)
       .select('*')
       .eq('show_id', showId)
       .order('performance_date', { ascending: false });
@@ -559,7 +532,6 @@ export async function fetchShowDiscountHistory(showId: number): Promise<any[]> {
       last_available_time: discount.last_available_time
     }));
 
-    console.log('✅ Discount history fetched:', history.length, 'records');
     return history;
 
   } catch (error) {
@@ -568,66 +540,199 @@ export async function fetchShowDiscountHistory(showId: number): Promise<any[]> {
   }
 }
 
-// Fetch sellout times for evening shows for a specific show
+// Fetch sellout times data for scatterplot showing time difference between last discount and performance
 export async function fetchShowSelloutTimes(showId: number): Promise<any[]> {
   try {
-    console.log('⏰ Fetching sellout times for show ID:', showId);
-    
-    // Get evening shows that sold out (have last_available_time)
+    // Get shows that sold out (have last_available_time) with their performance times
     const { data, error } = await supabase
-      .from('TKTS Discounts Fake')
-      .select('last_available_time, show_time')
+      .from(discountDatabase)
+      .select('last_available_time, performance_time, performance_date, is_matinee, discount_percent, low_price, high_price')
       .eq('show_id', showId)
-      .eq('show_time', 'Evening')
-      .not('last_available_time', 'is', null);
+      .not('last_available_time', 'is', null)
+      .not('performance_time', 'is', null);
     
     if (error) {
       console.error('❌ Error fetching sellout times:', error);
       throw error;
     }
 
-    // Parse sellout times and group by hour
-    const hourCounts: Record<number, number> = {};
+    const scatterData: any[] = [];
     
     (data || []).forEach(item => {
-      if (item.last_available_time) {
+      if (item.last_available_time && item.performance_time) {
         try {
-          // Parse time string (assuming format like "14:30" or "2:30 PM")
+          // Parse last available time (format: "HH:MM:SS" or "H:MM AM/PM")
+          let lastAvailableHour = 0;
           const timeStr = item.last_available_time;
-          let hour: number;
           
           if (timeStr.includes('PM') || timeStr.includes('AM')) {
             // 12-hour format
             const [timePart, period] = timeStr.split(' ');
-            const [hourStr] = timePart.split(':');
-            hour = parseInt(hourStr);
-            if (period === 'PM' && hour !== 12) hour += 12;
-            if (period === 'AM' && hour === 12) hour = 0;
+            const [hourStr, minuteStr] = timePart.split(':');
+            lastAvailableHour = parseInt(hourStr) + (parseInt(minuteStr) || 0) / 60;
+            if (period === 'PM' && lastAvailableHour !== 12) lastAvailableHour += 12;
+            if (period === 'AM' && lastAvailableHour === 12) lastAvailableHour = 0;
           } else {
-            // 24-hour format
-            const [hourStr] = timeStr.split(':');
-            hour = parseInt(hourStr);
+            // 24-hour format (HH:MM:SS or HH:MM)
+            const [hourStr, minuteStr] = timeStr.split(':');
+            lastAvailableHour = parseInt(hourStr) + (parseInt(minuteStr) || 0) / 60;
           }
           
-          if (!isNaN(hour) && hour >= 0 && hour < 24) {
-            hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+          // Parse performance time (format: "HH:MM:SS")
+          const [perfHourStr, perfMinuteStr] = item.performance_time.split(':');
+          const performanceHour = parseInt(perfHourStr) + (parseInt(perfMinuteStr) || 0) / 60;
+          
+          // Calculate time difference in hours (performance - last available)
+          let timeDifference = performanceHour - lastAvailableHour;
+          
+          // Handle day boundary crossing (e.g., 11 PM last available, 2 PM next day performance)
+          if (timeDifference < 0) {
+            timeDifference += 24;
+          }
+          
+          // Only include reasonable time differences (0-24 hours)
+          if (timeDifference >= 0 && timeDifference <= 24) {
+            scatterData.push({
+              timeDifference: timeDifference,
+              performanceTime: performanceHour,
+              lastAvailableTime: lastAvailableHour,
+              isMatinee: item.is_matinee,
+              date: item.performance_date,
+              discountPercent: item.discount_percent,
+              lowPrice: item.low_price,
+              highPrice: item.high_price,
+              // Convert times to Eastern timezone display format
+              lastAvailableDisplay: formatTimeToEastern(item.last_available_time),
+              performanceTimeDisplay: formatTimeToEastern(item.performance_time)
+            });
           }
         } catch (e) {
-          console.warn('⚠️ Could not parse time:', item.last_available_time);
+          console.warn('⚠️ Could not parse sellout time data:', item);
         }
       }
     });
 
-    const selloutTimes = Object.entries(hourCounts).map(([hour, count]) => ({
-      hour: parseInt(hour),
-      count
-    }));
-
-    console.log('✅ Sellout times fetched:', selloutTimes.length, 'time slots');
-    return selloutTimes;
+    return scatterData;
 
   } catch (error) {
     console.error('💥 Error fetching sellout times:', error);
     return []; // Return empty array on error
+  }
+}
+
+// Helper function to format time for Eastern timezone display
+function formatTimeToEastern(timeStr: string): string {
+  try {
+    if (timeStr.includes('PM') || timeStr.includes('AM')) {
+      return timeStr; // Already in 12-hour format
+    } else {
+      // Convert 24-hour to 12-hour format
+      const [hourStr, minuteStr] = timeStr.split(':');
+      const hour = parseInt(hourStr);
+      const minute = parseInt(minuteStr) || 0;
+      
+      if (hour === 0) {
+        return `12:${minute.toString().padStart(2, '0')} AM`;
+      } else if (hour < 12) {
+        return `${hour}:${minute.toString().padStart(2, '0')} AM`;
+      } else if (hour === 12) {
+        return `12:${minute.toString().padStart(2, '0')} PM`;
+      } else {
+        return `${hour - 12}:${minute.toString().padStart(2, '0')} PM`;
+      }
+    }
+  } catch (e) {
+    return timeStr;
+  }
+}
+
+// Fetch best days data for different show time filters
+export async function fetchBestDaysData(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
+  try {
+    // Get discount data with show time filter
+    let discountsQuery = supabase
+      .from(discountDatabase)
+      .select('show_id, performance_date, is_matinee, created_at');
+    
+    discountsQuery = discountsQuery.eq('is_matinee', showTimeFilter === 'matinee');
+    
+    const { data: discountsData, error } = await discountsQuery;
+    
+    if (error) {
+      console.error('❌ Error fetching discounts for best days:', error);
+      throw error;
+    }
+
+    if (!discountsData || discountsData.length === 0) {
+      console.warn('⚠️ No discounts found for best days calculation');
+      return [];
+    }
+
+    // Filter to recent discounts
+    const recentDiscounts = discountsData.filter(discount => {
+      if (!discount.performance_date) return false;
+      const performanceDate = discount.performance_date;
+      return performanceDate >= fourMonthsAgoStr && performanceDate <= endDateStr;
+    });
+
+    // Calculate days per day-of-week in the last 4 months
+    const daysPerWeek: { [key: string]: number } = {
+      Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0
+    };
+    
+    for (
+      let d = new Date(beginDate.getTime());
+      d <= today;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayName = dayNames[d.getDay()];
+      daysPerWeek[dayName]++;
+    }
+
+    console.log('Days per week:', daysPerWeek);
+
+    // Group discounts by day of week
+    const dayGroups: { [key: string]: any[] } = {
+      Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: []
+    };
+    
+    recentDiscounts.forEach(discount => {
+      if (discount.performance_date) {
+        const date = parseLocalDate(discount.performance_date);
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[date.getDay()];
+        // If created_at exists and its date is different from performance_date, add it as a separate entry
+        // if (discount.created_at) {
+        //     const createdTime = new Date(discount.created_at);
+        //   if (createdTime.getDay() !== parseLocalDate(discount.performance_date).getDay()) {
+        //       console.log('Created time:', createdTime, 'Performance date:', discount.performance_date);
+
+        //     const createdDayName = dayNames[createdTime.getDay()];
+        //     dayGroups[createdDayName].push([discount, 'created_at']);
+        //   }
+        // }
+        dayGroups[dayName].push(discount);
+      }
+    });
+
+    // Calculate availability percentage for each day
+    const bestDaysData = Object.entries(dayGroups).map(([dayName, dayDiscounts]) => {
+      console.log(dayDiscounts);
+      
+      const daysOfThisTypeInPeriod = daysPerWeek[dayName] || 1;
+      const averageNumberOfDiscounts = dayDiscounts.length / daysOfThisTypeInPeriod;
+      
+      return {
+        day: dayName,
+        averageNumberOfDiscounts: averageNumberOfDiscounts
+      };
+    });
+
+    return bestDaysData;
+    
+  } catch (error) {
+    console.error('💥 Error fetching best days data:', error);
+    return [];
   }
 }

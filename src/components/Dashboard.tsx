@@ -4,7 +4,7 @@ import BestDaysBarGraph from './BestDaysBarGraph';
 import { fetchRecentDiscountTrends, getShowsWithRecentAppearances } from '../lib/supabase';
 import { Show } from '../types';
 import { Award } from 'lucide-react';
-import { getPopularDays, calculateOverallStats } from '../lib/utils';
+import { calculateOverallStats } from '../lib/utils';
 
 interface DashboardProps {
   shows: Show[];
@@ -48,7 +48,6 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
   }, [shows]);
 
   const stats = calculateOverallStats(shows);
-  const popularDays = getPopularDays(shows);
 
   return (
     <div className="mb-8 space-y-6">
@@ -153,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
       {/* Best Days and Trends Side by Side - Hidden on small screens */}
       <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Best Days to Visit Bar Graph */}
-        <BestDaysBarGraph data={popularDays} />
+        <BestDaysBarGraph />
         
         {/* Recent Trends */}
         {loading ? (

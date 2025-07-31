@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, DollarSign, Clock, TrendingUp } from 'lucide-react';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Bar, Line, Doughnut, Scatter } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,6 +18,7 @@ import {
 import { Show } from '../types';
 import { fetchShowDetails, fetchShowDiscountHistory, fetchShowSelloutTimes } from '../lib/supabase';
 import { formatCurrency, formatPercentage } from '../lib/utils';
+import ReviewPreview from './ReviewPreview';
 
 // Register Chart.js components
 ChartJS.register(
@@ -45,9 +46,17 @@ interface ShowDiscountData {
   last_available_time?: string;
 }
 
-interface SelloutTimeData {
-  hour: number;
-  count: number;
+interface SelloutScatterData {
+  timeDifference: number;
+  performanceTime: number;
+  lastAvailableTime: number;
+  isMatinee: boolean;
+  date: string;
+  discountPercent: number;
+  lowPrice: number;
+  highPrice: number;
+  lastAvailableDisplay: string;
+  performanceTimeDisplay: string;
 }
 
 const ShowDetail: React.FC<ShowDetailProps> = () => {
@@ -56,7 +65,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
   
   const [show, setShow] = useState<Show | null>(null);
   const [discountHistory, setDiscountHistory] = useState<ShowDiscountData[]>([]);
-  const [selloutTimes, setSelloutTimes] = useState<SelloutTimeData[]>([]);
+  const [selloutTimes, setSelloutTimes] = useState<SelloutScatterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,16 +75,22 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     const loadShowData = async () => {
       try {
         setLoading(true);
+        console.log('Loading show data for ID:', showId);
+        
         const [showData, historyData, selloutData] = await Promise.all([
           fetchShowDetails(parseInt(showId)),
           fetchShowDiscountHistory(parseInt(showId)),
           fetchShowSelloutTimes(parseInt(showId))
         ]);
         
+        console.log('Show data loaded:', showData);
+        console.log('History data count:', historyData.length);
+        
         setShow(showData);
         setDiscountHistory(historyData);
         setSelloutTimes(selloutData);
       } catch (err: any) {
+        console.error('Error loading show data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -90,11 +105,11 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
       <div className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="animate-pulse">
-            <div className="h-8 bg-secondary-400 rounded w-1/4 mb-4"></div>
-            <div className="h-12 bg-secondary-400 rounded w-1/2 mb-8"></div>
+            <div className="h-8 bg-neutral-200 rounded w-1/4 mb-4"></div>
+            <div className="h-12 bg-neutral-200 rounded w-1/2 mb-8"></div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="h-64 bg-secondary-400 rounded"></div>
-              <div className="h-64 bg-secondary-400 rounded"></div>
+              <div className="h-64 bg-neutral-200 rounded"></div>
+              <div className="h-64 bg-neutral-200 rounded"></div>
             </div>
           </div>
         </div>
@@ -114,7 +129,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
             Back to Shows
           </button>
           <div className="card text-center py-12">
-            <div className="text-error-500 text-lg">
+            <div className="text-red-600 text-lg">
               {error || 'Show not found'}
             </div>
           </div>
@@ -122,6 +137,20 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
       </div>
     );
   }
+
+  // Helper function to format date safely
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return null;
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   // Calculate day-of-week availability for this show
   const dayAvailability = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -185,11 +214,116 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
     .slice(-12); // Last 12 weeks
 
-  // Sellout time distribution (convert to hour ranges)
-  const selloutDistribution = Array.from({ length: 24 }, (_, hour) => ({
-    hour: `${hour}:00`,
-    count: selloutTimes.filter(s => s.hour === hour).reduce((sum, s) => sum + s.count, 0)
-  })).filter(h => h.count > 0);
+  // Sellout scatterplot data - time difference vs performance time
+  const selloutScatterData = {
+    datasets: [
+      {
+        label: 'Matinee Shows',
+        data: selloutTimes
+          .filter(s => s.isMatinee)
+          .map(s => ({
+            x: s.timeDifference,
+            y: s.performanceTime,
+            ...s
+          })),
+        backgroundColor: 'rgba(245, 158, 11, 0.8)', // amber
+        borderColor: 'rgba(245, 158, 11, 1)',
+        pointRadius: 6,
+        pointHoverRadius: 8,
+      },
+      {
+        label: 'Evening Shows',
+        data: selloutTimes
+          .filter(s => !s.isMatinee)
+          .map(s => ({
+            x: s.timeDifference,
+            y: s.performanceTime,
+            ...s
+          })),
+        backgroundColor: 'rgba(168, 85, 247, 0.8)', // violet
+        borderColor: 'rgba(168, 85, 247, 1)',
+        pointRadius: 6,
+        pointHoverRadius: 8,
+      }
+    ]
+  };
+
+  const scatterOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: { color: 'rgba(100, 116, 139, 1)' }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        titleColor: 'rgba(248, 250, 252, 1)',
+        bodyColor: 'rgba(248, 250, 252, 1)',
+        borderColor: 'rgba(20, 184, 166, 0.3)',
+        borderWidth: 1,
+        callbacks: {
+          title: (context: any) => {
+            const point = context[0].raw;
+            return `${point.isMatinee ? 'Matinee' : 'Evening'} Show - ${point.date}`;
+          },
+          label: (context: any) => {
+            const point = context.raw;
+            return [
+              `Time until performance: ${point.timeDifference.toFixed(1)} hours`,
+              `Last discount available: ${point.lastAvailableDisplay} ET`,
+              `Performance time: ${point.performanceTimeDisplay} ET`,
+              `Discount: ${point.discountPercent}%`,
+              `Price range: $${point.lowPrice} - $${point.highPrice}`
+            ];
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        type: 'linear' as const,
+        position: 'bottom' as const,
+        title: {
+          display: true,
+          text: 'Hours Between Last Discount and Performance',
+          color: 'rgba(100, 116, 139, 1)'
+        },
+        ticks: { 
+          color: 'rgba(100, 116, 139, 1)',
+          callback: (value: any) => `${value}h`
+        },
+        grid: { color: 'rgba(226, 232, 240, 0.3)' }
+      },
+      y: {
+        type: 'linear' as const,
+        title: {
+          display: true,
+          text: 'Performance Time (Eastern)',
+          color: 'rgba(100, 116, 139, 1)'
+        },
+        ticks: { 
+          color: 'rgba(100, 116, 139, 1)',
+          callback: (value: any) => {
+            // Convert decimal hours to time format
+            const hour = Math.floor(value);
+            const minute = Math.round((value - hour) * 60);
+            if (hour === 0) {
+              return `12:${minute.toString().padStart(2, '0')} AM`;
+            } else if (hour < 12) {
+              return `${hour}:${minute.toString().padStart(2, '0')} AM`;
+            } else if (hour === 12) {
+              return `12:${minute.toString().padStart(2, '0')} PM`;
+            } else {
+              return `${hour - 12}:${minute.toString().padStart(2, '0')} PM`;
+            }
+          }
+        },
+        grid: { color: 'rgba(226, 232, 240, 0.5)' },
+        min: 12, // Start at noon
+        max: 21  // End at 9 PM
+      },
+    },
+  };
 
   // Chart configurations
   const bestDaysChartData = {
@@ -235,17 +369,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     }]
   };
 
-  const selloutChartData = {
-    labels: selloutDistribution.map(s => s.hour),
-    datasets: [{
-      label: 'Sellouts',
-      data: selloutDistribution.map(s => s.count),
-      backgroundColor: 'rgba(239, 68, 68, 0.8)',
-      borderColor: 'rgba(239, 68, 68, 1)',
-      borderWidth: 1,
-      borderRadius: 6,
-    }]
-  };
+
 
   const chartOptions = {
     responsive: true,
@@ -304,12 +428,14 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
         {/* Show Info */}
         <div className="card mb-8">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <div>
-              <h1 className="text-3xl font-bold text-secondary-900 mb-2">{show.title}</h1>
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+                {show.title || 'Show Title'}
+              </h1>
               {show.theater && (
-                <p className="text-lg text-secondary-600 mb-4">{show.theater}</p>
+                <p className="text-lg text-neutral-600 mb-4">{show.theater}</p>
               )}
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-3 mb-4">
                 {show.category && (
                   <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
                     show.category === 'Broadway' 
@@ -319,28 +445,40 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
                     {show.category}
                   </span>
                 )}
+                {show.last_seen && (
+                  <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-neutral-100 text-neutral-700">
+                    Last seen: {formatDate(show.last_seen)}
+                  </span>
+                )}
               </div>
+              
+              {/* Review Preview */}
+              {show.reviews && (
+                <div className="mb-4">
+                  <ReviewPreview reviewUrl={show.reviews} showTitle={show.title || 'This Show'} />
+                </div>
+              )}
             </div>
             
-            <div className="bg-gradient-to-br from-primary-400 to-primary-500 text-white rounded-lg p-6 min-w-[300px]">
-              <h3 className="text-lg font-semibold text-secondary-900 mb-4">Quick Stats</h3>
+            <div className="bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-lg p-6 min-w-[300px] shadow-lg">
+              <h3 className="text-lg font-semibold text-white mb-4">Quick Stats</h3>
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Total Appearances:</span>
-                  <span className="font-semibold text-secondary-900">{discountHistory.length}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/80">Total Appearances:</span>
+                  <span className="font-semibold text-white">{discountHistory.length}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Avg Discount:</span>
-                  <span className="font-semibold text-secondary-900">
+                <div className="flex justify-between items-center">
+                  <span className="text-white/80">Avg Discount:</span>
+                  <span className="font-semibold text-white">
                     {discountHistory.length > 0 
                       ? formatPercentage(discountHistory.reduce((sum, d) => sum + d.discount_percent, 0) / discountHistory.length)
                       : '—'
                     }
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary-600">Typical Price Range:</span>
-                  <span className="font-semibold text-secondary-900">
+                <div className="flex justify-between items-center">
+                  <span className="text-white/80">Typical Price Range:</span>
+                  <span className="font-semibold text-white">
                     {show.average_price_range 
                       ? `${formatCurrency(show.average_price_range[0])} - ${formatCurrency(show.average_price_range[1])}`
                       : '—'
@@ -356,39 +494,64 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Best Days */}
           <div className="card">
-            <h3 className="text-xl font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary-600" />
               Best Days for Discounts
             </h3>
-            <Bar data={bestDaysChartData} options={chartOptions} height={200} />
+            <div className="h-64">
+              <Bar data={bestDaysChartData} options={chartOptions} />
+            </div>
           </div>
 
           {/* Discount Distribution */}
           <div className="card">
-            <h3 className="text-xl font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary-600" />
               Discount Distribution
             </h3>
-            <Doughnut data={discountDistChartData} options={doughnutOptions} height={200} />
+            <div className="h-64">
+              <Doughnut data={discountDistChartData} options={doughnutOptions} />
+            </div>
           </div>
 
           {/* Long Term Trends */}
           <div className="card">
-            <h3 className="text-xl font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary-600" />
               12-Week Discount Trends
             </h3>
-            <Line data={trendsChartData} options={chartOptions} height={200} />
+            <div className="h-64">
+              <Line data={trendsChartData} options={chartOptions} />
+            </div>
           </div>
 
-          {/* Sellout Times */}
-          {selloutDistribution.length > 0 && (
+          {/* Sellout Times Scatterplot */}
+          {selloutTimes.length > 0 && (
             <div className="card">
-              <h3 className="text-xl font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary-600" />
-                Evening Show Sellout Times
+                Sellout Timing Analysis
               </h3>
-              <Bar data={selloutChartData} options={chartOptions} height={200} />
+              <div className="text-sm text-neutral-600 mb-4">
+                Time between last discount availability and performance time (Eastern Time)
+              </div>
+              <div className="h-80">
+                <Scatter data={selloutScatterData} options={scatterOptions} />
+              </div>
+            </div>
+          )}
+
+          {/* Show additional info if no discount history */}
+          {discountHistory.length === 0 && (
+            <div className="col-span-full">
+              <div className="card text-center py-12">
+                <div className="text-neutral-600 text-lg mb-2">
+                  No discount history available for this show
+                </div>
+                <div className="text-neutral-500">
+                  This show may not have appeared on TKTS recently, or data is still being collected.
+                </div>
+              </div>
             </div>
           )}
         </div>
