@@ -75,16 +75,12 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     const loadShowData = async () => {
       try {
         setLoading(true);
-        console.log('Loading show data for ID:', showId);
         
         const [showData, historyData, selloutData] = await Promise.all([
           fetchShowDetails(parseInt(showId)),
           fetchShowDiscountHistory(parseInt(showId)),
           fetchShowSelloutTimes(parseInt(showId))
         ]);
-        
-        console.log('Show data loaded:', showData);
-        console.log('History data count:', historyData.length);
         
         setShow(showData);
         setDiscountHistory(historyData);

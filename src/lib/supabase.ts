@@ -690,8 +690,6 @@ export async function fetchBestDaysData(showTimeFilter: 'all' | 'matinee' | 'eve
       daysPerWeek[dayName]++;
     }
 
-    console.log('Days per week:', daysPerWeek);
-
     // Group discounts by day of week
     const dayGroups: { [key: string]: any[] } = {
       Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: []
@@ -718,7 +716,6 @@ export async function fetchBestDaysData(showTimeFilter: 'all' | 'matinee' | 'eve
 
     // Calculate availability percentage for each day
     const bestDaysData = Object.entries(dayGroups).map(([dayName, dayDiscounts]) => {
-      console.log(dayDiscounts);
       
       const daysOfThisTypeInPeriod = daysPerWeek[dayName] || 1;
       const averageNumberOfDiscounts = dayDiscounts.length / daysOfThisTypeInPeriod;
