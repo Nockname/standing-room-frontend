@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { Show } from '../types';
+import { Show, ShowWithRecentActivity, DayOfWeek } from '../types/index.js';
+import { dayOfWeekCounts, parseNYString, getTotalDateRange, getLastWeekDateRange } from './utils.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://exgwstrejyolhvwtzijh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4Z3dzdHJlanlvbGh2d3R6aWpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyOTgwMjgsImV4cCI6MjA2ODg3NDAyOH0.w0-FOpxjJnTLYxyS5frE9olOh9LnJVJ1k_zYeYE7bwE';
@@ -9,727 +10,468 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
 
-// Calculate date string for 4 months ago
-const today = new Date();
-const fourMonthsAgo = new Date(today);
-fourMonthsAgo.setMonth(today.getMonth() - 4);
-const fourMonthsAgoStr = fourMonthsAgo.toISOString().split('T')[0];
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const endDate = new Date(today);
-endDate.setDate(today.getDate() + 1); // Add 1 day buffer
+/* ------------- GENERAL FETCHING METHODS ------------- */
 
-const endDateStr = endDate.toISOString().split('T')[0];
+/**
+ * Get all show IDs from the database
+ */
+async function getAllShowIds(): Promise<number[]> {
+    const { data, error } = await supabase
+        .from('Show Information')
+        .select('show_id');
+
+    if (error) {
+        throw new Error(`Error fetching show ids: ${error.message}`);
+    }
+
+    return data ? data.map((show: { show_id: number }) => show.show_id) : [];
+}
+
+/**
+ * Get basic show information by ID
+ */
+async function getShowInfo(showId: number) {
+    const { data, error } = await supabase
+        .from('Show Information')
+        .select('show_id, show_name, is_broadway, theater, nyt_review')
+        .eq('show_id', showId)
+        .single();
+
+    if (error) {
+        throw new Error(`Error fetching show info for ID ${showId}: ${error.message}`);
+    }
+
+    return data;
+}
+
+/**
+ * Get discounts for a specific show where performance date is within the date range
+ */
+async function getShowDiscounts(showId: number, startDate?: string, endDate?: string, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
+    const dateRange = startDate && endDate ? { startDate, endDate } : getTotalDateRange();
+    
+    let query = supabase
+        .from(discountDatabase)
+        .select('*')
+        .eq('show_id', showId)
+        .gte('performance_date', dateRange.startDate)
+        .lte('performance_date', dateRange.endDate);
+
+    // Apply show time filter
+    if (showTimeFilter === 'matinee') {
+        query = query.eq('is_matinee', true);
+    } else if (showTimeFilter === 'evening') {
+        query = query.eq('is_matinee', false);
+    }
+
+    const { data, error } = await query.order('performance_date', { ascending: true });
+
+    if (error) {
+        throw new Error(`Error fetching discounts for show ${showId}: ${error.message}`);
+    }
+
+    return data || [];
+}
 
 
-const firstLogDate = parseLocalDate('2025-07-23');
-// For fake data, use the full 4-month period; for real data, use the later of firstLogDate or fourMonthsAgo
-const beginDate = discountDatabase === 'TKTS Discounts Fake' ? fourMonthsAgo : (firstLogDate < fourMonthsAgo ? fourMonthsAgo : firstLogDate);
-
-// Calculate total days in the last 4 months
-const totalDaysInPeriod = Math.ceil((today.getTime() - beginDate.getTime()) / (1000 * 60 * 60 * 24));
+/* ------------- CALCULATE HOME PAGE STATISTICS ------------- */
 
 
 /**
- * Parses a date string in 'YYYY-MM-DD' format as a local Date object.
- * @param dateStr The date string to parse.
- * @returns Date object in local time, or undefined if invalid.
+ * Calculate statistics for a specific show
+ * Helper function for getShowWithStatistics
  */
-export function parseLocalDate(dateStr: string): Date {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    if (!year || !month || !day) return new Date(NaN);
-    return new Date(year, month - 1, day);
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export async function fetchShows(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
-  try {
-    // First, get all shows
-    const { data: showsData, error: showsError } = await supabase
-      .from('Show Information')
-      .select('*, theater');
-    
-    if (showsError) {
-      console.error('❌ Error fetching shows:', showsError);
-      console.error('📋 Shows error details:', {
-        message: showsError.message,
-        details: showsError.details,
-        hint: showsError.hint,
-        code: showsError.code
-      });
-      throw showsError;
-    }
-
-
-    // Then get all discount data with pagination to ensure we get everything
-    
-    let allDiscountsData: any[] = [];
-    const pageSize = 1000;
-    let currentPage = 0;
-    let hasMoreData = true;
-
-    // get all data from the past 4 months
-    while (hasMoreData) {
-      let query = supabase
-        .from(discountDatabase)
-        .select('*')
-        .gte('performance_date', fourMonthsAgoStr)
-        .order('id', { ascending: true })
-        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
-
-      // Only apply show time filter if not 'all'
-      if (showTimeFilter !== 'all') {
-        query = query.eq('is_matinee', showTimeFilter === 'matinee');
-      }
-
-      const { data: pageData, error: discountsError } = await query;
-
-      if (discountsError) {
-      console.error('❌ Error fetching discounts page:', currentPage, discountsError);
-      console.error('💰 Discounts error details:', {
-        message: discountsError.message,
-        details: discountsError.details,
-        hint: discountsError.hint,
-        code: discountsError.code
-      });
-      throw discountsError;
-      }
-
-      if (pageData && pageData.length > 0) {
-        allDiscountsData = allDiscountsData.concat(pageData);
-        
-        // Check if we got a full page, if not we're done
-        hasMoreData = pageData.length === pageSize;
-        currentPage++;
-      } else {
-        hasMoreData = false;
-      }
-    }
-
-    // All filtering is now done in the query, so we can use the data directly
-    const discountsData = allDiscountsData;
-
-    // If we have no data, return empty array but log it
-    if (!showsData || showsData.length === 0) {
-      console.warn('⚠️ No shows found in database');
-      return [];
-    }
-
-    if (!discountsData || discountsData.length === 0) {
-      console.warn('⚠️ No discounts found in database');
-      return [];
-    }
-
-    // Calculate days per day-of-week in the last 4 months
-    const daysPerWeek: { [key: string]: number } = {
-      Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0
-    };
-    
-    for (let d = new Date(beginDate); d <= today; d.setDate(d.getDate() + 1)) {
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const dayName = dayNames[d.getDay()];
-      daysPerWeek[dayName]++;
-    }
-
-    // Transform the data to match our expected format
-    const transformedShows = showsData?.map(show => {
-      // Find all discounts for this show
-      const showDiscounts = discountsData?.filter(discount => discount.show_id === show.show_id) || [];      
-      // Calculate statistics from discount data
-      let avgDiscount = 0;
-      let availabilityFrequency = 0;
-      let lastSeen = null;
-      let avgLowPrice: number | undefined = undefined;
-      let avgHighPrice: number | undefined = undefined;
-
-      if (showDiscounts.length > 0) {
-        // Calculate average low and high prices
-        const lowPrices = showDiscounts.map(d => d.low_price);
-        const highPrices = showDiscounts.map(d => d.high_price);
-        avgLowPrice = lowPrices.reduce((sum, price) => sum + price, 0) / lowPrices.length;
-        avgHighPrice = highPrices.reduce((sum, price) => sum + price, 0) / highPrices.length;
-        // Calculate average discount
-        const discounts = showDiscounts.map(d => d.discount_percent);
-        avgDiscount = discounts.reduce((sum, discount) => sum + discount, 0) / discounts.length;
-
-        // Filter discounts to last 4 months for availability calculation
-        const recentDiscounts = showDiscounts.filter(discount => {
-          if (!discount.performance_date) return false;
-          const performanceDate = discount.performance_date;
-          const isInRange = performanceDate >= fourMonthsAgoStr && performanceDate <= endDateStr;
-          return isInRange;
-        });
-
-        // Calculate overall availability: unique performance dates in last 4 months / total days in period
-        // Use Set to get unique dates only, avoiding double-counting multiple discounts on same day
-        const uniquePerformanceDates = new Set(
-          recentDiscounts
-            .map(d => d.performance_date)
-            .filter(date => date) // Remove null/undefined dates
-        );
-        const uniqueDaysWithDiscounts = uniquePerformanceDates.size;
-        
-        const rawAvailability = uniqueDaysWithDiscounts / totalDaysInPeriod;
-        availabilityFrequency = Math.min(rawAvailability, 1.0);
-
-        // Get most recent availability
-        const sortedDiscounts = showDiscounts.sort((a, b) => 
-          new Date(b.last_available_time || b.created_at).getTime() - 
-          new Date(a.last_available_time || a.created_at).getTime()
-        );
-        lastSeen = sortedDiscounts[0]?.last_available_time || sortedDiscounts[0]?.created_at;
-      }
-
-      // Group discounts by day of week for days_available
-      const dayGroups: { [key: string]: any[] } = {};
-      showDiscounts.forEach(discount => {
-        if (discount.performance_date) {
-          // Parse performance_date as local date (not UTC)
-          const date = parseLocalDate(discount.performance_date);
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          const dayName = dayNames[date.getDay()];
-          
-          if (!dayGroups[dayName]) {
-            dayGroups[dayName] = [];
-          }
-          dayGroups[dayName].push(discount);
-        }
-      });
-
-      // Calculate day-specific statistics
-      const daysAvailable = Object.entries(dayGroups).map(([dayName, dayDiscounts]) => {
-        const dayLowPrices = dayDiscounts.map(d => d.low_price);
-        const dayHighPrices = dayDiscounts.map(d => d.high_price);
-        const dayDiscountPercents = dayDiscounts.map(d => d.discount_percent);
-
-        let availabilityPercentage = 0;
-        
-        // Filter day discounts to last 4 months
-        const recentDayDiscounts = dayDiscounts.filter(discount => {
-          if (!discount.performance_date) return false;
-          const performanceDate = discount.performance_date;
-          return performanceDate >= fourMonthsAgoStr && performanceDate <= endDateStr;
-        });
-
-        // Calculate availability for this day of week using unique dates only
-        // Get unique performance dates for this day of week to avoid double-counting
-        const uniqueDayDates = new Set(
-          recentDayDiscounts
-            .map(d => d.performance_date)
-            .filter(date => date) // Remove null/undefined dates
-        );
-        const uniqueDaysOfThisTypeWithDiscounts = uniqueDayDates.size;
-        
-        const daysOfThisTypeInPeriod = daysPerWeek[dayName] || 1; // avoid division by zero
-        const rawDayAvailability = uniqueDaysOfThisTypeWithDiscounts / daysOfThisTypeInPeriod;
-        availabilityPercentage = Math.min(rawDayAvailability * 100, 100); // Cap at 100%
-                
+function calculateShowStatistics(discounts: any[]) {
+    if (discounts.length === 0) {
         return {
-          day_of_week: dayName,
-          availability_percentage: availabilityPercentage, // Normalize
-          average_price_range: (dayLowPrices.length && dayHighPrices.length && !isNaN(dayLowPrices.reduce((sum, price) => sum + price, 0) / dayLowPrices.length) && !isNaN(dayHighPrices.reduce((sum, price) => sum + price, 0) / dayHighPrices.length))
-            ? [
-                Math.round(dayLowPrices.reduce((sum, price) => sum + price, 0) / dayLowPrices.length),
-                Math.round(dayHighPrices.reduce((sum, price) => sum + price, 0) / dayHighPrices.length)
-              ] as [number, number]
-            : undefined,
-          average_discount: dayDiscountPercents.reduce((sum, disc) => sum + disc, 0) / dayDiscountPercents.length,
-          frequency_count: dayDiscounts.length
+            averageDiscount: 0,
+            averageLowPrice: 0,
+            averageHighPrice: 0,
+            totalDiscounts: 0,
+            lastSeen: undefined,
+            dayStats: {},
+            availabilityFrequency: 0
         };
-      });
-
-      // Check if show is available today
-      const todayStr = today.toISOString().split('T')[0];
-      const availableToday = showDiscounts.some(discount => {
-        if (!discount.last_available_time || !discount.performance_date) return false;
-        
-        // Extract date from last_available_time (format: "2025-07-31T16:25:53+00:00")
-        // or use performance_date as fallback
-        let lastAvailableDate;
-        if (discount.last_available_time.includes('T')) {
-          lastAvailableDate = discount.last_available_time.split('T')[0];
-        } else {
-          lastAvailableDate = discount.performance_date;
-        }
-        
-        return lastAvailableDate === todayStr;
-      });
-
-      // Get NYT review URL from show information (not discount data)
-      const reviewUrl = show.nyt_review ? show.nyt_review.replace(/\$0$/, '') : undefined;
-
-      const transformed = {
-        id: show.show_id.toString(),
-        title: show.show_name,
-        theater: show.theater || undefined,
-        category: show.is_broadway ? 'Broadway' : 'Off-Broadway',
-        availability_frequency: availabilityFrequency,
-        average_price_range: (avgLowPrice !== undefined && avgHighPrice !== undefined && !isNaN(avgLowPrice) && !isNaN(avgHighPrice))
-          ? [Math.round(avgLowPrice), Math.round(avgHighPrice)] as [number, number]
-          : undefined,
-        average_discount: avgDiscount > 0 ? Math.round(avgDiscount) : undefined,
-        last_seen: lastSeen ? new Date(lastSeen).toLocaleDateString('en-US') : undefined,
-        days_available: daysAvailable.length > 0 ? daysAvailable : undefined,
-        availableToday: availableToday,
-        reviews: reviewUrl
-      };
-
-      return transformed;
-    }) || [];
-
-    return transformedShows;
-    
-  } catch (error) {
-    console.error('💥 Fatal error loading shows from Supabase:', error);
-    console.error('📋 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    // Return empty array instead of mock data so we can see if there are real database issues
-    return [];
-  }
-}
-
-// Get weekly cumulative discount trends from the Weekly Statistics table
-export async function fetchRecentDiscountTrends() {
-  try {
-    
-    // Get today and 1 year ago for filtering
-    const today = new Date();
-    const oneYearAgo = new Date(today);
-    oneYearAgo.setFullYear(today.getFullYear() - 1);
-    const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
-
-
-    // Fetch weekly statistics from the last year, ordered by week
-    const { data: weeklyStats, error } = await supabase
-      .from('Weekly Statistics')
-      .select('week_start, week_end, cumulative_discount_percent, total_discounts, total_shows, average_low_price, average_high_price')
-      .gte('week_start', oneYearAgoStr)
-      .order('week_start', { ascending: true });
-
-    if (error) {
-      console.error('❌ Error fetching weekly statistics:', error);
-      throw error;
     }
 
-    if (!weeklyStats || weeklyStats.length === 0) {
-      console.warn('⚠️ No weekly statistics found in database for the last year');
-      return [];
-    }
+    const averageDiscount = discounts.reduce((sum, d) => sum + (d.discount_percent || 0), 0) / discounts.length;
+    const averageLowPrice = discounts.reduce((sum, d) => sum + (d.low_price || 0), 0) / discounts.length;
+    const averageHighPrice = discounts.reduce((sum, d) => sum + (d.high_price || 0), 0) / discounts.length;
 
-    // Transform the data to match the expected format for the chart
-    // Convert week_start to a readable week label and use cumulative_discount_percent
-    const transformedData = weeklyStats.map(stat => {
-      const weekStart = new Date(stat.week_start);
-      
-      // Format week label as "MMM DD" (e.g., "Jul 22")
-      const weekLabel = weekStart.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
-      
-      return {
-        week: weekLabel,
-        totalDiscount: stat.cumulative_discount_percent || 0,
-        // Additional data for potential future use
-        weekStart: stat.week_start,
-        weekEnd: stat.week_end,
-        totalDiscounts: stat.total_discounts,
-        totalShows: stat.total_shows,
-        averageLowPrice: stat.average_low_price,
-        averageHighPrice: stat.average_high_price
-      };
-    });
 
-    return transformedData;
+    // Calculate availability frequency, also known as overall availability
+    const { totalDays } = getTotalDateRange();
+    const createdAtDays = new Set(discounts.map(d => parseNYString(d.created_at)).filter(Boolean));
+    const lastAvailableDays = new Set(
+        discounts
+            .filter(d => d.last_available_time != null)
+            .map(d => parseNYString(d.last_available_time))
+            .filter(Boolean)
+    );
+    const uniqueDays = new Set([...createdAtDays, ...lastAvailableDays]);
+    const availabilityFrequency = Math.min(uniqueDays.size / totalDays, 1);
     
-  } catch (error) {
-    console.error('💥 Error fetching weekly discount trends:', error);
-    console.error('📋 Error details:', error instanceof Error ? error.stack : 'No stack trace');
-    // Return empty array on error so the chart can handle gracefully
-    return [];
-  }
-}
-
-// Get shows with actual TKTS appearances in the last week
-export async function getShowsWithRecentAppearances(shows: Show[]) {
-  try {
-    // Get today and 1 week ago
-    const today = new Date();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(today.getDate() - 7);
-    const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
-
-    // Fetch all discounts from the last week
-    const { data: recentDiscounts, error } = await supabase
-      .from(discountDatabase)
-      .select('show_id, performance_date')
-      .gte('performance_date', oneWeekAgoStr)
-      .lte('performance_date', todayStr);
-
-    if (error) {
-      console.error('❌ Error fetching recent discounts:', error);
-      throw error;
-    }
-
-    // Count all individual appearances (including multiple per day)
-    const showAppearanceCounts: { [showId: string]: number } = {};
-    
-    if (recentDiscounts) {
-      recentDiscounts.forEach(discount => {
-        const showId = discount.show_id.toString();
-        
-        if (!showAppearanceCounts[showId]) {
-          showAppearanceCounts[showId] = 0;
-        }
-        
-        // Count each discount record as one appearance
-        showAppearanceCounts[showId]++;
-      });
-    }
-
-    // Map shows to include their recent appearance count
-    const showsWithRecentActivity = shows.map(show => ({
-      ...show,
-      recentActivityScore: showAppearanceCounts[show.id] || 0
-    }));
-
-    // Separate by category and get top 3 of each
-    const broadwayShows = showsWithRecentActivity
-      .filter(show => show.category === 'Broadway')
-      .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
-      .slice(0, 3);
-      
-    const nonBroadwayShows = showsWithRecentActivity
-      .filter(show => show.category !== 'Broadway')
-      .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
-      .slice(0, 3);
-
-    return {
-      broadway: broadwayShows,
-      nonBroadway: nonBroadwayShows
-    };
-
-  } catch (error) {
-    console.error('💥 Error getting shows with recent appearances:', error);
-    // Fallback to empty result
-    return {
-      broadway: [],
-      nonBroadway: []
-    };
-  }
-}
-
-// Fetch detailed information for a specific show
-// This function is used on a show's specific web page
-export async function fetchShowDetails(showId: number): Promise<Show> {
-  try {
-    const { data: showData, error: showError } = await supabase
-      .from('Show Information')
-      .select('*')
-      .eq('id', showId)
-      .single();
-    
-    if (showError) {
-      console.error('❌ Error fetching show details:', showError);
-      throw showError;
-    }
-
-    if (!showData) {
-      throw new Error('Show not found');
-    }
-
-    // Get aggregated discount data for this show
-    const { data: discountsData, error: discountsError } = await supabase
-      .from(discountDatabase)
-      .select('*')
-      .eq('show_id', showId);
-    
-    if (discountsError) {
-      console.error('❌ Error fetching show discounts:', discountsError);
-    }
-
-    const discounts = discountsData || [];
-    
-    // Calculate aggregated stats
-    const avgDiscount = discounts.length > 0 
-      ? discounts.reduce((sum, d) => sum + (d.discount_percent || 0), 0) / discounts.length 
-      : 0;
-
-    const avgLowPrice = discounts.length > 0 
-      ? discounts.reduce((sum, d) => sum + (d.low_price || 0), 0) / discounts.length 
-      : 0;
-
-    const avgHighPrice = discounts.length > 0 
-      ? discounts.reduce((sum, d) => sum + (d.high_price || 0), 0) / discounts.length 
-      : 0;
-
     const lastSeen = discounts.length > 0 
-      ? discounts.sort((a, b) => new Date(b.performance_date).getTime() - new Date(a.performance_date).getTime())[0]?.performance_date
-      : undefined;
+        ? discounts
+            .filter(d => d.performance_date)
+            .sort((a, b) => new Date(b.performance_date).getTime() - new Date(a.performance_date).getTime())[0]?.performance_date
+        : undefined;
 
-    // Get day-of-week statistics
-    const dayStats: Record<string, { count: number; total: number }> = {};
+    // Calculate day-of-week statistics
+    const dayStats: Record<string, any> = {};
     discounts.forEach(discount => {
-      const day = new Date(discount.performance_date).toLocaleDateString('en-US', { weekday: 'long' });
-      if (!dayStats[day]) {
-        dayStats[day] = { count: 0, total: 0 };
-      }
-      dayStats[day].count++;
-      dayStats[day].total += discount.discount_percent || 0;
-    });
+        if (!discount.performance_date) return;
 
-    const daysAvailable = Object.entries(dayStats).map(([day, stats]) => ({
-      day_of_week: day,
-      availability_percentage: stats.count > 0 ? (stats.total / stats.count) : 0,
-      frequency_count: stats.count
-    }));
-
-    // Get NYT review URL from show data
-    const reviewUrl = showData.nyt_review ? showData.nyt_review.replace(/\$0$/, '') : undefined;
-
-    const show: Show = {
-      id: showData.id.toString(),
-      title: showData.show_name,
-      theater: showData.theater,
-      category: showData.is_broadway ? 'Broadway' : 'Off-Broadway',
-      availability_frequency: discounts.length / 100, // Normalize to 0-1
-      average_discount: avgDiscount,
-      average_price_range: avgLowPrice > 0 && avgHighPrice > 0 ? [Math.round(avgLowPrice), Math.round(avgHighPrice)] : undefined,
-      last_seen: lastSeen,
-      days_available: daysAvailable,
-      reviews: reviewUrl
-    };
-
-    return show;
-
-  } catch (error) {
-    console.error('💥 Error fetching show details:', error);
-    throw error;
-  }
-}
-
-// Fetch discount history for a specific show
-export async function fetchShowDiscountHistory(showId: number): Promise<any[]> {
-  try {
-    const { data, error } = await supabase
-      .from(discountDatabase)
-      .select('*')
-      .eq('show_id', showId)
-      .order('performance_date', { ascending: false });
-    
-    if (error) {
-      console.error('❌ Error fetching discount history:', error);
-      throw error;
-    }
-
-    const history = (data || []).map(discount => ({
-      discount_percent: discount.discount_percent || 0,
-      count: 1,
-      date: discount.performance_date,
-      day_of_week: new Date(discount.performance_date).toLocaleDateString('en-US', { weekday: 'long' }),
-      low_price: discount.low_price || 0,
-      high_price: discount.high_price || 0,
-      last_available_time: discount.last_available_time
-    }));
-
-    return history;
-
-  } catch (error) {
-    console.error('💥 Error fetching discount history:', error);
-    throw error;
-  }
-}
-
-// Fetch sellout times data for scatterplot showing time difference between last discount and performance
-export async function fetchShowSelloutTimes(showId: number): Promise<any[]> {
-  try {
-    // Get shows that sold out (have last_available_time) with their performance times
-    const { data, error } = await supabase
-      .from(discountDatabase)
-      .select('last_available_time, performance_time, performance_date, is_matinee, discount_percent, low_price, high_price')
-      .eq('show_id', showId)
-      .not('last_available_time', 'is', null)
-      .not('performance_time', 'is', null);
-    
-    if (error) {
-      console.error('❌ Error fetching sellout times:', error);
-      throw error;
-    }
-
-    const scatterData: any[] = [];
-    
-    (data || []).forEach(item => {
-      if (item.last_available_time && item.performance_time) {
-        try {
-          // Parse last available time (format: "HH:MM:SS" or "H:MM AM/PM")
-          let lastAvailableHour = 0;
-          const timeStr = item.last_available_time;
-          
-          if (timeStr.includes('PM') || timeStr.includes('AM')) {
-            // 12-hour format
-            const [timePart, period] = timeStr.split(' ');
-            const [hourStr, minuteStr] = timePart.split(':');
-            lastAvailableHour = parseInt(hourStr) + (parseInt(minuteStr) || 0) / 60;
-            if (period === 'PM' && lastAvailableHour !== 12) lastAvailableHour += 12;
-            if (period === 'AM' && lastAvailableHour === 12) lastAvailableHour = 0;
-          } else {
-            // 24-hour format (HH:MM:SS or HH:MM)
-            const [hourStr, minuteStr] = timeStr.split(':');
-            lastAvailableHour = parseInt(hourStr) + (parseInt(minuteStr) || 0) / 60;
-          }
-          
-          // Parse performance time (format: "HH:MM:SS")
-          const [perfHourStr, perfMinuteStr] = item.performance_time.split(':');
-          const performanceHour = parseInt(perfHourStr) + (parseInt(perfMinuteStr) || 0) / 60;
-          
-          // Calculate time difference in hours (performance - last available)
-          let timeDifference = performanceHour - lastAvailableHour;
-          
-          // Handle day boundary crossing (e.g., 11 PM last available, 2 PM next day performance)
-          if (timeDifference < 0) {
-            timeDifference += 24;
-          }
-          
-          // Only include reasonable time differences (0-24 hours)
-          if (timeDifference >= 0 && timeDifference <= 24) {
-            scatterData.push({
-              timeDifference: timeDifference,
-              performanceTime: performanceHour,
-              lastAvailableTime: lastAvailableHour,
-              isMatinee: item.is_matinee,
-              date: item.performance_date,
-              discountPercent: item.discount_percent,
-              lowPrice: item.low_price,
-              highPrice: item.high_price,
-              // Convert times to Eastern timezone display format
-              lastAvailableDisplay: formatTimeToEastern(item.last_available_time),
-              performanceTimeDisplay: formatTimeToEastern(item.performance_time)
-            });
-          }
-        } catch (e) {
-          console.warn('⚠️ Could not parse sellout time data:', item);
+        const dayName = new Date(discount.performance_date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+        if (!dayStats[dayName]) {
+            dayStats[dayName] = {
+                discounts: [],
+                totalDiscount: 0,
+                totalLowPrice: 0,
+                totalHighPrice: 0,
+                matineeCount: 0,
+                eveningCount: 0
+            };
         }
-      }
+        
+        dayStats[dayName].discounts.push(discount);
+        dayStats[dayName].totalDiscount += discount.discount_percent || 0;
+        dayStats[dayName].totalLowPrice += discount.low_price || 0;
+        dayStats[dayName].totalHighPrice += discount.high_price || 0;
+        
+        if (discount.is_matinee) {
+            dayStats[dayName].matineeCount++;
+        } else {
+            dayStats[dayName].eveningCount++;
+        }
     });
 
-    return scatterData;
-
-  } catch (error) {
-    console.error('💥 Error fetching sellout times:', error);
-    return []; // Return empty array on error
-  }
+    return {
+        averageDiscount,
+        averageLowPrice,
+        averageHighPrice,
+        totalDiscounts: discounts.length,
+        lastSeen,
+        dayStats,
+        availabilityFrequency
+    };
 }
 
-// Helper function to format time for Eastern timezone display
-function formatTimeToEastern(timeStr: string): string {
-  try {
-    if (timeStr.includes('PM') || timeStr.includes('AM')) {
-      return timeStr; // Already in 12-hour format
-    } else {
-      // Convert 24-hour to 12-hour format
-      const [hourStr, minuteStr] = timeStr.split(':');
-      const hour = parseInt(hourStr);
-      const minute = parseInt(minuteStr) || 0;
-      
-      if (hour === 0) {
-        return `12:${minute.toString().padStart(2, '0')} AM`;
-      } else if (hour < 12) {
-        return `${hour}:${minute.toString().padStart(2, '0')} AM`;
-      } else if (hour === 12) {
-        return `12:${minute.toString().padStart(2, '0')} PM`;
-      } else {
-        return `${hour - 12}:${minute.toString().padStart(2, '0')} PM`;
-      }
-    }
-  } catch (e) {
-    return timeStr;
-  }
+
+/**
+ * Check if a show is available today. Specifically, check if the local date is the same a show's last available date.
+ * Helper function for getShowWithStatistics
+ */
+function isShowAvailableToday(discounts: any[]): boolean {
+    const today = new Date();
+    const localToday = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    return discounts.some(d => parseNYString(d.last_available_time) === localToday);
 }
 
-// Fetch best days data for different show time filters
-export async function fetchBestDaysData(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
-  try {
-    // Get discount data with show time filter
-    let discountsQuery = supabase
-      .from(discountDatabase)
-      .select('show_id, performance_date, is_matinee, created_at');
-    
-    discountsQuery = discountsQuery.eq('is_matinee', showTimeFilter === 'matinee');
-    
-    const { data: discountsData, error } = await discountsQuery;
-    
-    if (error) {
-      console.error('❌ Error fetching discounts for best days:', error);
-      throw error;
-    }
+/**
+ * Get comprehensive show data with calculated statistics
+ */
+async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show> {
+    const [showInfo, discounts] = await Promise.all([
+        getShowInfo(showId),
+        getShowDiscounts(showId, undefined, undefined, showTimeFilter)
+    ]);
 
-    if (!discountsData || discountsData.length === 0) {
-      console.warn('⚠️ No discounts found for best days calculation');
-      return [];
-    }
+    const stats = calculateShowStatistics(discounts);
 
-    // Filter to recent discounts
-    const recentDiscounts = discountsData.filter(discount => {
-      if (!discount.performance_date) return false;
-      const performanceDate = discount.performance_date;
-      return performanceDate >= fourMonthsAgoStr && performanceDate <= endDateStr;
+    // Calculate day availability breakdown
+    const daysAvailable = Object.entries(stats.dayStats).map(([dayName, dayData]: [string, any]) => {
+        const count = dayData.discounts.length;
+        const avgDiscount = count > 0 ? dayData.totalDiscount / count : 0;
+        const avgLowPrice = count > 0 ? dayData.totalLowPrice / count : 0;
+        const avgHighPrice = count > 0 ? dayData.totalHighPrice / count : 0;
+        
+        // Estimate availability percentage based on frequency
+        const uniqueDaysForThisDayOfWeek = new Set(
+            dayData.discounts.map((d: any) => d.performance_date)
+        ).size;
+        const availabilityPercentage = Math.min((uniqueDaysForThisDayOfWeek / dayOfWeekCounts[dayName]) * 100, 100);
+
+        return {
+            day_of_week: dayName,
+            availability_percentage: availabilityPercentage,
+            average_price_range: [Math.round(avgLowPrice), Math.round(avgHighPrice)] as [number, number],
+            average_discount: Math.round(avgDiscount),
+            frequency_count: count
+        };
     });
 
-    // Calculate days per day-of-week in the last 4 months
-    const daysPerWeek: { [key: string]: number } = {
-      Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0
+    return {
+        id: showInfo.show_id.toString(),
+        title: showInfo.show_name,
+        theater: showInfo.theater,
+        category: showInfo.is_broadway ? 'Broadway' : 'Off-Broadway',
+        availability_frequency: stats.availabilityFrequency,
+        average_price_range: stats.totalDiscounts > 0 ? [Math.round(stats.averageLowPrice), Math.round(stats.averageHighPrice)] as [number, number] : undefined,
+        average_discount: Math.round(stats.averageDiscount),
+        last_seen: stats.lastSeen,
+        days_available: daysAvailable,
+        availableToday: isShowAvailableToday(discounts),
+        reviews: showInfo.nyt_review
     };
+}
+
+
+/**
+ * Get show details for the detail page
+ */
+export async function getShowDetails(showId: number): Promise<Show> {
+    return getShowWithStatistics(showId);
+}
+
+/**
+ * Get all shows with their statistics
+ */
+export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show[]> {
+    const showIds = await getAllShowIds();
     
-    for (
-      let d = new Date(beginDate.getTime());
-      d <= today;
-      d.setDate(d.getDate() + 1)
-    ) {
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const dayName = dayNames[d.getDay()];
-      daysPerWeek[dayName]++;
+    // Process shows in parallel with some concurrency control
+    const batchSize = 5;
+    const results: Show[] = [];
+    
+    for (let i = 0; i < showIds.length; i += batchSize) {
+        const batch = showIds.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+            batch.map(id => getShowWithStatistics(id, showTimeFilter).catch(error => {
+                console.warn(`Failed to fetch show ${id}:`, error.message);
+                return null;
+            }))
+        );
+        
+        results.push(...batchResults.filter(show => show !== null) as Show[]);
+    }
+    
+    return results;
+}
+
+
+/* ------------- CALCULATE DASHBOARD STATISTICS ------------- */
+
+/**
+ * Get overall statistics: number of shows tracked, average overall availability, and average price ranges
+ */
+export const getOverallStats = (shows: Show[]) => {
+  const totalShows = shows.length;
+  if (totalShows === 0) {
+    return {
+      totalShows: 0,
+      averageAvailability: 0,
+      averagePriceRange: undefined,
+      averageDiscount: 0
+    };
+  }
+
+  // Only consider shows with a valid price range
+  const showsWithPriceRange = shows.filter(show => show.average_price_range && show.average_price_range.length === 2);
+  let avgLow = 0, avgHigh = 0;
+  if (showsWithPriceRange.length > 0) {
+    avgLow = showsWithPriceRange.reduce((sum, show) => sum + (show.average_price_range![0] || 0), 0) / showsWithPriceRange.length;
+    avgHigh = showsWithPriceRange.reduce((sum, show) => sum + (show.average_price_range![1] || 0), 0) / showsWithPriceRange.length;
+  }
+
+  const showsWithDiscounts = shows.filter(show => show.average_discount);
+  const averageAvailability = shows.reduce((sum, show) => sum + show.availability_frequency, 0) / totalShows * 100;
+  const averageDiscount = showsWithDiscounts.length > 0
+    ? showsWithDiscounts.reduce((sum, show) => sum + (show.average_discount || 0), 0) / showsWithDiscounts.length
+    : 0;
+
+  return {
+    totalShows,
+    averageAvailability,
+    averagePriceRange: (avgLow > 0 && avgHigh > 0) ? [Math.round(avgLow), Math.round(avgHigh)] as [number, number] : undefined,
+    averageDiscount
+  };
+};
+
+
+/**
+ * Get weekly discount trends (also known as long term trends) from aggregated data
+ */
+export async function getWeeklyDiscountTrends() {
+    try {
+        const { data: weeklyStats, error } = await supabase
+            .from('Weekly Statistics')
+            .select('week_start, week_end, cumulative_discount_percent, total_discounts, total_shows, average_low_price, average_high_price')
+            .gte('week_start', getTotalDateRange().startDate)
+            .order('week_start', { ascending: true });
+
+        if (error) {
+            throw new Error(`Error fetching weekly statistics: ${error.message}`);
+        }
+
+        if (!weeklyStats || weeklyStats.length === 0) {
+            // Fallback: generate weekly trends from discount data
+            console.warn('No weekly statistics found.');
+            return [];
+        }
+
+        return weeklyStats.map(stat => ({
+            week: new Date(stat.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            totalDiscount: stat.cumulative_discount_percent || 0,
+            weekStart: stat.week_start,
+            weekEnd: stat.week_end,
+            totalDiscounts: stat.total_discounts,
+            totalShows: stat.total_shows,
+            averageLowPrice: stat.average_low_price,
+            averageHighPrice: stat.average_high_price
+        }));
+    } catch (error) {
+        console.error('Error fetching weekly discount trends:', error);
+        return [];
+    }
+}
+
+/**
+ * Get best days data with show time filtering
+ */
+export async function getBestDaysData(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
+    const { startDate, endDate } = getTotalDateRange();
+    
+    let query = supabase
+        .from(discountDatabase)
+        .select('performance_date, is_matinee, show_id')
+        .gte('performance_date', startDate)
+        .lte('performance_date', endDate);
+
+    // Apply show time filter
+    if (showTimeFilter === 'matinee') {
+        query = query.eq('is_matinee', true);
+    } else if (showTimeFilter === 'evening') {
+        query = query.eq('is_matinee', false);
     }
 
-    // Group discounts by day of week
-    const dayGroups: { [key: string]: any[] } = {
-      Sunday: [], Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: []
-    };
-    
-    recentDiscounts.forEach(discount => {
-      if (discount.performance_date) {
-        const date = parseLocalDate(discount.performance_date);
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayName = dayNames[date.getDay()];
-        // If created_at exists and its date is different from performance_date, add it as a separate entry
-        // if (discount.created_at) {
-        //     const createdTime = new Date(discount.created_at);
-        //   if (createdTime.getDay() !== parseLocalDate(discount.performance_date).getDay()) {
-        //       console.log('Created time:', createdTime, 'Performance date:', discount.performance_date);
+    const { data: discounts, error } = await query;
 
-        //     const createdDayName = dayNames[createdTime.getDay()];
-        //     dayGroups[createdDayName].push([discount, 'created_at']);
-        //   }
-        // }
+    if (error || !discounts) {
+        return [];
+    }
+
+    // Group by day of week
+    const dayGroups: Record<string, any[]> = {};
+    
+    discounts.forEach(discount => {
+        if (!discount.performance_date) return;
+        
+        const dayName = new Date(discount.performance_date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+        if (!dayGroups[dayName]) {
+            dayGroups[dayName] = [];
+        }
         dayGroups[dayName].push(discount);
-      }
     });
 
-    // Calculate availability percentage for each day
-    const bestDaysData = Object.entries(dayGroups).map(([dayName, dayDiscounts]) => {
-      
-      const daysOfThisTypeInPeriod = daysPerWeek[dayName] || 1;
-      const averageNumberOfDiscounts = dayDiscounts.length / daysOfThisTypeInPeriod;
-      
+    return Object.entries(dayGroups).map(([day, dayDiscounts]) => ({
+        day: day as DayOfWeek,
+        averageNumberOfDiscounts: dayDiscounts.length / dayOfWeekCounts[day],
+        uniqueShows: new Set(dayDiscounts.map(d => d.show_id)).size
+    }));
+}
+
+
+/**
+ * Get top shows by number of TKTS appearances with performance dates in the last week.
+ * This does not include shows with performance date tomorrow towards that tally.
+ */
+export const getTopShowsByRecentAppearances = async (
+  shows: Show[],
+  showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'
+): Promise<{
+  broadway: ShowWithRecentActivity[];
+  nonBroadway: ShowWithRecentActivity[];
+}> => {
+
+  const { startDate, endDate } = getLastWeekDateRange();
+
+  // Calculate a recent activity score for each show
+  // Fetch discounts for all shows in parallel and calculate recentActivityScore
+  const scores = await Promise.all(
+    shows.map(async show => {
+      const discounts = await getShowDiscounts(Number(show.id), startDate, endDate, showTimeFilter);
+      // console.log(`Show ID: ${show.id}, Show Title: ${show.title}, Recent Activity Score: ${discounts.length}`);
+      // console.log(discounts)
       return {
-        day: dayName,
-        averageNumberOfDiscounts: averageNumberOfDiscounts
+        ...show,
+        recentActivityScore: discounts.length
       };
-    });
+    })
+  );
 
-    return bestDaysData;
+  // Separate by category and get top 3 of each
+  const broadwayShows = scores
+    .filter(show => show.category === 'Broadway')
+    .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
+    .slice(0, 3);
+
+  const nonBroadwayShows = scores
+    .filter(show => show.category !== 'Broadway')
+    .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
+    .slice(0, 3);
+
+  return {
+    broadway: broadwayShows,
+    nonBroadway: nonBroadwayShows
+  };
+};
+
+/* ------------- CALCULATE SHOW-SPECIFIC PAGE STATISTICS ------------- */
+
+
+/**
+ * Get show discount history for charts
+ */
+export async function getShowDiscountHistory(showId: number): Promise<any[]> {
+    const { startDate, endDate } = getTotalDateRange();
     
-  } catch (error) {
-    console.error('💥 Error fetching best days data:', error);
-    return [];
-  }
+    const { data, error } = await supabase
+        .from(discountDatabase)
+        .select('performance_date as date, discount_percent, low_price, high_price, is_matinee')
+        .eq('show_id', showId)
+        .gte('performance_date', startDate)
+        .lte('performance_date', endDate)
+        .order('performance_date', { ascending: true });
+
+    if (error) {
+        throw new Error(`Error fetching discount history for show ${showId}: ${error.message}`);
+    }
+
+    return data || [];
+}
+
+/**
+ * Get show sellout times data
+ */
+export async function getShowSelloutTimes(showId: number): Promise<any[]> {
+    const { startDate, endDate } = getTotalDateRange();
+    
+    const { data, error } = await supabase
+        .from(discountDatabase)
+        .select('performance_date, performance_time, is_matinee, last_available_time')
+        .eq('show_id', showId)
+        .gte('performance_date', startDate)
+        .lte('performance_date', endDate)
+        .not('last_available_time', 'is', null)
+        .order('performance_date', { ascending: true });
+
+    if (error) {
+        throw new Error(`Error fetching sellout times for show ${showId}: ${error.message}`);
+    }
+
+    return (data || []).map(item => {
+        const performanceDateTime = new Date(`${item.performance_date}T${item.performance_time}`);
+        const lastAvailableTime = new Date(item.last_available_time);
+        const timeDifference = (performanceDateTime.getTime() - lastAvailableTime.getTime()) / (1000 * 60 * 60); // Hours
+
+        return {
+            performanceDate: item.performance_date,
+            performanceTime: performanceDateTime.getHours() + performanceDateTime.getMinutes() / 60,
+            timeDifference: Math.max(timeDifference, 0),
+            isMatinee: item.is_matinee
+        };
+    });
 }

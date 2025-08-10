@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Show, FilterOptions } from '../types';
-import { fetchShows } from '../lib/supabase';
+import { getAllShowsWithStatistics } from '../lib/supabase';
 import ShowCard from './ShowCard';
 import FilterPanel from './FilterPanel';
 import MobileFilter from './MobileFilter';
@@ -55,7 +55,7 @@ function HomePage() {
   const loadShows = async () => {
     try {
       setLoading(true);
-      const data = await fetchShows(filters.showTime);
+      const data = await getAllShowsWithStatistics(filters.showTime);
       setShows(data);
     } catch (error) {
       console.error('Error loading shows:', error);

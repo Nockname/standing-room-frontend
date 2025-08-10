@@ -16,7 +16,7 @@ import {
   Filler,
 } from 'chart.js';
 import { Show } from '../types';
-import { fetchShowDetails, fetchShowDiscountHistory, fetchShowSelloutTimes } from '../lib/supabase';
+import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
 import { formatCurrency, formatPercentage } from '../lib/utils';
 import ReviewPreview from './ReviewPreview';
 
@@ -77,9 +77,9 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
         setLoading(true);
         
         const [showData, historyData, selloutData] = await Promise.all([
-          fetchShowDetails(parseInt(showId)),
-          fetchShowDiscountHistory(parseInt(showId)),
-          fetchShowSelloutTimes(parseInt(showId))
+          getShowDetails(parseInt(showId)),
+          getShowDiscountHistory(parseInt(showId)),
+          getShowSelloutTimes(parseInt(showId))
         ]);
         
         setShow(showData);

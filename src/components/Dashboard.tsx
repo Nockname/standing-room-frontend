@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import RecentTrends from './RecentTrends';
 import BestDaysBarGraph from './BestDaysBarGraph';
-import { fetchRecentDiscountTrends, getShowsWithRecentAppearances } from '../lib/supabase';
+import { getWeeklyDiscountTrends, getTopShowsByRecentAppearances } from '../lib/supabase';
 import { Show } from '../types';
 import { Award } from 'lucide-react';
-import { calculateOverallStats } from '../lib/utils';
+import { getOverallStats } from '../lib/supabase';
 
 interface DashboardProps {
   shows: Show[];
@@ -32,8 +32,8 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
     const fetchData = async () => {
       try {
         const [trendsData, topShowsData] = await Promise.all([
-          fetchRecentDiscountTrends(),
-          getShowsWithRecentAppearances(shows)
+          getWeeklyDiscountTrends(),
+          Promise.resolve(getTopShowsByRecentAppearances(shows))
         ]);
         setTrendData(trendsData);
         setTopShows(topShowsData);
@@ -47,7 +47,7 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
     fetchData();
   }, [shows]);
 
-  const stats = calculateOverallStats(shows);
+  const stats = getOverallStats(shows);
 
   return (
     <div className="mb-8 space-y-6">
@@ -57,20 +57,30 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
       >
         {/* <h2 className="text-2xl font-bold mb-4">TKTS Insights</h2> */}
         <div className="grid grid-cols-3 gap-2 md:gap-4">
-          <div className="text-center">
-        <div className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalShows}</div>
-        <div className="text-xs sm:text-sm opacity-90">Shows Tracked</div>
           </div>
+              <div className="col-span-4 flex justify-between items-center gap-2 md:gap-4">
+              <div className="text-center flex-1">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalShows}</div>
+                <div className="text-xs sm:text-sm opacity-90">Shows Tracked</div>
+              </div>
+              <div className="text-center flex-1">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.averageAvailability.toFixed(1)}%</div>
+                <div className="text-xs sm:text-sm opacity-90">Average Availability</div>
+              </div>
+              <div className="text-center flex-1">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">
+                {stats.averageDiscount ? `${stats.averageDiscount.toFixed(1)}%` : '—'}
+                </div>
+                <div className="text-xs sm:text-sm opacity-90">Average Discount</div>
+              </div>
+              <div className="text-center flex-1">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold">
+                {stats.averagePriceRange ? `$${stats.averagePriceRange[0]} - $${stats.averagePriceRange[1]}` : '—'}
+                </div>
+                <div className="text-xs sm:text-sm opacity-90">Average Price Range</div>
+              </div>
+              </div>
           <div className="text-center">
-        <div className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.averageAvailability.toFixed(1)}%</div>
-        <div className="text-xs sm:text-sm opacity-90">Average Availability</div>
-          </div>
-          <div className="text-center">
-        <div className="text-xl sm:text-2xl md:text-3xl font-bold">
-          {stats.averagePriceRange ? `$${stats.averagePriceRange[0]} - $${stats.averagePriceRange[1]}` : '—'}
-        </div>
-        <div className="text-xs sm:text-sm opacity-90">Average Price Range</div>
-          </div>
         </div>
       </div>
 
@@ -78,7 +88,7 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
       <div className="hidden lg:block card relative">
         <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
           <Award className="h-5 w-5 text-warning-500" />
-          Top Shows by Number of TKTS Appearances Last Week
+          Top Shows by Number of Performances Last Week that Appeared on TKTS
         </h3>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

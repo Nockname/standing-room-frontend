@@ -3,7 +3,7 @@ import { Bar } from 'react-chartjs-2';
 import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 import { ChevronDown } from 'lucide-react';
 import { DayOfWeek } from '../types';
-import { fetchBestDaysData } from '../lib/supabase';
+import { getBestDaysData } from '../lib/supabase';
 
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -60,7 +60,7 @@ const BestDaysBarGraph: React.FC<BestDaysBarGraphProps> = () => {
     const loadBestDaysData = async () => {
       setLoading(true);
       try {
-        const data = await fetchBestDaysData(showTimeFilter);
+        const data = await getBestDaysData(showTimeFilter);
         setBestDaysData(data);
       } catch (error) {
         console.error('Error loading best days data:', error);
