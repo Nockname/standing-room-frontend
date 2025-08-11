@@ -17,7 +17,7 @@ import {
 } from 'chart.js';
 import { Show } from '../types';
 import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
-import { chartColors, colors, hexToRgba } from '../lib/colors';
+import { chartColors } from '../lib/colors';
 import ReviewPreview from './ReviewPreview';
 
 // Register Chart.js components
@@ -149,67 +149,67 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
     }
   };
 
-  // Calculate day-of-week availability for this show
-  const dayAvailability = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    .map(day => {
-      const dayData = discountHistory.filter(d => d.day_of_week === day);
-      return {
-        day,
-        count: dayData.length,
-        avgDiscount: dayData.length > 0 ? dayData.reduce((sum, d) => sum + d.discount_percent, 0) / dayData.length : 0
-      };
-    })
-    .sort((a, b) => b.count - a.count);
+  // // Calculate day-of-week availability for this show
+  // const dayAvailability = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  //   .map(day => {
+  //     const dayData = discountHistory.filter(d => d.day_of_week === day);
+  //     return {
+  //       day,
+  //       count: dayData.length,
+  //       avgDiscount: dayData.length > 0 ? dayData.reduce((sum, d) => sum + d.discount_percent, 0) / dayData.length : 0
+  //     };
+  //   })
+  //   .sort((a, b) => b.count - a.count);
 
-  // Calculate discount distribution
-  const discountRanges = [
-    { label: '10-19%', min: 10, max: 19 },
-    { label: '20-29%', min: 20, max: 29 },
-    { label: '30-39%', min: 30, max: 39 },
-    { label: '40-49%', min: 40, max: 49 },
-    { label: '50%+', min: 50, max: 100 }
-  ];
+  // // Calculate discount distribution
+  // const discountRanges = [
+  //   { label: '10-19%', min: 10, max: 19 },
+  //   { label: '20-29%', min: 20, max: 29 },
+  //   { label: '30-39%', min: 30, max: 39 },
+  //   { label: '40-49%', min: 40, max: 49 },
+  //   { label: '50%+', min: 50, max: 100 }
+  // ];
 
-  const discountDistribution = discountRanges.map(range => ({
-    label: range.label,
-    count: discountHistory.filter(d => 
-      d.discount_percent >= range.min && d.discount_percent <= range.max
-    ).length
-  }));
+  // const discountDistribution = discountRanges.map(range => ({
+  //   label: range.label,
+  //   count: discountHistory.filter(d => 
+  //     d.discount_percent >= range.min && d.discount_percent <= range.max
+  //   ).length
+  // }));
 
-  // Calculate long-term trends (weekly aggregation)
-  const weeklyTrends = discountHistory.reduce((acc, item) => {
-    const date = new Date(item.performance_date);
-    const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
-    const weekKey = weekStart.toISOString().split('T')[0];
+  // // Calculate long-term trends (weekly aggregation)
+  // const weeklyTrends = discountHistory.reduce((acc, item) => {
+  //   const date = new Date(item.performance_date);
+  //   const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
+  //   const weekKey = weekStart.toISOString().split('T')[0];
     
-    if (!acc[weekKey]) {
-      acc[weekKey] = {
-        week: weekKey,
-        totalDiscount: 0,
-        count: 0,
-        avgLowPrice: 0,
-        avgHighPrice: 0
-      };
-    }
+  //   if (!acc[weekKey]) {
+  //     acc[weekKey] = {
+  //       week: weekKey,
+  //       totalDiscount: 0,
+  //       count: 0,
+  //       avgLowPrice: 0,
+  //       avgHighPrice: 0
+  //     };
+  //   }
     
-    acc[weekKey].totalDiscount += item.discount_percent;
-    acc[weekKey].count += 1;
-    acc[weekKey].avgLowPrice += item.low_price;
-    acc[weekKey].avgHighPrice += item.high_price;
+  //   acc[weekKey].totalDiscount += item.discount_percent;
+  //   acc[weekKey].count += 1;
+  //   acc[weekKey].avgLowPrice += item.low_price;
+  //   acc[weekKey].avgHighPrice += item.high_price;
     
-    return acc;
-  }, {} as Record<string, any>);
+  //   return acc;
+  // }, {} as Record<string, any>);
 
-  const trendData = Object.values(weeklyTrends)
-    .map((week: any) => ({
-      ...week,
-      avgDiscount: week.totalDiscount / week.count,
-      avgLowPrice: week.avgLowPrice / week.count,
-      avgHighPrice: week.avgHighPrice / week.count
-    }))
-    .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
-    .slice(-12); // Last 12 weeks
+  // const trendData = Object.values(weeklyTrends)
+  //   .map((week: any) => ({
+  //     ...week,
+  //     avgDiscount: week.totalDiscount / week.count,
+  //     avgLowPrice: week.avgLowPrice / week.count,
+  //     avgHighPrice: week.avgHighPrice / week.count
+  //   }))
+  //   .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
+  //   .slice(-12); // Last 12 weeks
 
   // Day of week analysis for dual-axis bar chart
   const dayOfWeekAnalysis = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -236,48 +236,48 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
     });
 
   // Chart configurations
-  const bestDaysChartData = {
-    labels: dayAvailability.map(d => d.day.slice(0, 3)),
-    datasets: [{
-      label: 'Discount Appearances',
-      data: dayAvailability.map(d => d.count),
-      backgroundColor: hexToRgba(colors.warning[500]),
-      borderColor: hexToRgba(colors.warning[600]),
-      borderWidth: 1,
-      borderRadius: 6,
-    }]
-  };
+  // const bestDaysChartData = {
+  //   labels: dayAvailability.map(d => d.day.slice(0, 3)),
+  //   datasets: [{
+  //     label: 'Discount Appearances',
+  //     data: dayAvailability.map(d => d.count),
+  //     backgroundColor: hexToRgba(colors.warning[500]),
+  //     borderColor: hexToRgba(colors.warning[600]),
+  //     borderWidth: 1,
+  //     borderRadius: 6,
+  //   }]
+  // };
 
-  const discountDistChartData = {
-    labels: discountDistribution.map(d => d.label),
-    datasets: [{
-      data: discountDistribution.map(d => d.count),
-      backgroundColor: [
-        hexToRgba(colors.warning[500]),   // Beautiful orange
-        chartColors.primary[600],         // Powder blue
-        chartColors.accent[600],          // Light cyan
-        chartColors.secondary[600],       // Yinmn blue
-        chartColors.success[500],         // Green
-      ],
-      borderWidth: 0,
-    }]
-  };
+  // const discountDistChartData = {
+  //   labels: discountDistribution.map(d => d.label),
+  //   datasets: [{
+  //     data: discountDistribution.map(d => d.count),
+  //     backgroundColor: [
+  //       hexToRgba(colors.warning[500]),   // Beautiful orange
+  //       chartColors.primary[600],         // Powder blue
+  //       chartColors.accent[600],          // Light cyan
+  //       chartColors.secondary[600],       // Yinmn blue
+  //       chartColors.success[500],         // Green
+  //     ],
+  //     borderWidth: 0,
+  //   }]
+  // };
 
-  const trendsChartData = {
-    labels: trendData.map(d => new Date(d.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
-    datasets: [{
-      label: 'Average Discount %',
-      data: trendData.map(d => d.avgDiscount),
-      fill: true,
-      backgroundColor: hexToRgba(colors.warning[400], 0.1), // Orange with very low opacity
-      borderColor: hexToRgba(colors.warning[500]),
-      pointBackgroundColor: hexToRgba(colors.warning[600]),
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      tension: 0.3,
-      borderWidth: 3,
-    }]
-  };
+  // const trendsChartData = {
+  //   labels: trendData.map(d => new Date(d.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+  //   datasets: [{
+  //     label: 'Average Discount %',
+  //     data: trendData.map(d => d.avgDiscount),
+  //     fill: true,
+  //     backgroundColor: hexToRgba(colors.warning[400], 0.1), // Orange with very low opacity
+  //     borderColor: hexToRgba(colors.warning[500]),
+  //     pointBackgroundColor: hexToRgba(colors.warning[600]),
+  //     pointBorderColor: '#fff',
+  //     pointBorderWidth: 2,
+  //     tension: 0.3,
+  //     borderWidth: 3,
+  //   }]
+  // };
 
   // Single-axis bar chart data for day of week analysis
   const getFilteredDayOfWeekData = () => {
