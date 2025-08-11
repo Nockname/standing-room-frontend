@@ -137,6 +137,37 @@ export const formatPercentage = (value: number, decimals: number = 1): string =>
 };
 
 /**
+ * Shortens a full weekday name to its standard 3-letter abbreviation. Return empty string if undefined.
+ *
+ * @param dayName - The full name of the weekday (e.g., "Monday").
+ * @returns The abbreviated weekday name (e.g., "Mon"). If input is not a valid weekday, returns the original string.
+ */
+export function shortenDayName(dayName?: string): string {
+    const abbreviations: Record<string, string> = {
+        Sunday: 'Sun.',
+        Monday: 'Mon.',
+        Tuesday: 'Tue.',
+        Wednesday: 'Wed.',
+        Thursday: 'Thu.',
+        Friday: 'Fri.',
+        Saturday: 'Sat.',
+    };
+    return dayName ? abbreviations[dayName] ?? dayName : '';
+}
+
+
+/**
+ * Returns a short label for a show time.
+ *
+ * @param showTime - The show time string ('matinee' or 'evening').
+ * @returns The abbreviated label ('Mat.' or 'Eve.'). Returns empty string for other values.
+ */
+export function shortenShowTimeLabel(showTime?: string): string {
+    return showTime === 'matinee' ? 'Matinee' : showTime === 'evening' ? 'Evening' : '';
+}
+
+
+/**
  * Formats a date string into a human-readable format (e.g., "Jan 1, 2024").
  *
  * @param dateString - The date string to format.

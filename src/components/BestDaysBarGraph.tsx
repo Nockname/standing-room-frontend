@@ -4,6 +4,7 @@ import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from '
 import { ChevronDown } from 'lucide-react';
 import { DayOfWeek } from '../types';
 import { getBestDaysData } from '../lib/supabase';
+import { chartColors } from '../lib/colors';
 
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -27,19 +28,6 @@ const BestDaysBarGraph: React.FC<BestDaysBarGraphProps> = () => {
   const [bestDaysData, setBestDaysData] = useState<Array<{ day: string; averageNumberOfDiscounts: number }>>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Get primary-500 color from CSS
-  const getPrimaryColor = () => {
-    if (typeof window !== 'undefined') {
-      const tempEl = document.createElement('div');
-      tempEl.className = 'bg-primary-500';
-      document.body.appendChild(tempEl);
-      const color = window.getComputedStyle(tempEl).backgroundColor;
-      document.body.removeChild(tempEl);
-      return color;
-    }
-    return 'rgb(152, 193, 217)'; // fallback to primary-500 RGB
-  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -84,7 +72,7 @@ const BestDaysBarGraph: React.FC<BestDaysBarGraphProps> = () => {
       {
         label: 'Avg Discounts',
         data: orderedData.map(d => d.averageNumberOfDiscounts),
-        backgroundColor: getPrimaryColor(), // primary-500 color from Tailwind
+        backgroundColor: chartColors.primary[500], // primary-500 color from centralized colors
         borderRadius: 6,
       },
     ],

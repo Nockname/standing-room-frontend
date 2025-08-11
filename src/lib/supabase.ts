@@ -205,8 +205,8 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
 
     return {
         id: showInfo.show_id.toString(),
-        title: showInfo.show_name,
-        theater: showInfo.theater,
+        title: showInfo.show_name.trim(),
+        theater: showInfo.theater ? showInfo.theater.trim() : undefined,
         category: showInfo.is_broadway ? 'Broadway' : 'Off-Broadway',
         availability_frequency: stats.availabilityFrequency,
         average_price_range: stats.totalDiscounts > 0 ? [Math.round(stats.averageLowPrice), Math.round(stats.averageHighPrice)] as [number, number] : undefined,
@@ -219,12 +219,6 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
 }
 
 
-/**
- * Get show details for the detail page
- */
-export async function getShowDetails(showId: number): Promise<Show> {
-    return getShowWithStatistics(showId);
-}
 
 /**
  * Get all shows with their statistics
@@ -380,7 +374,8 @@ export async function getBestDaysData(showTimeFilter: 'all' | 'matinee' | 'eveni
  */
 export const getTopShowsByRecentAppearances = async (
   shows: Show[],
-  showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'
+  showTimeFilter: 'all' | 'matinee' | 'evening' = 'all',
+  numberToReturn: number = 3
 ): Promise<{
   broadway: ShowWithRecentActivity[];
   nonBroadway: ShowWithRecentActivity[];
@@ -393,8 +388,6 @@ export const getTopShowsByRecentAppearances = async (
   const scores = await Promise.all(
     shows.map(async show => {
       const discounts = await getShowDiscounts(Number(show.id), startDate, endDate, showTimeFilter);
-      // console.log(`Show ID: ${show.id}, Show Title: ${show.title}, Recent Activity Score: ${discounts.length}`);
-      // console.log(discounts)
       return {
         ...show,
         recentActivityScore: discounts.length
@@ -406,12 +399,12 @@ export const getTopShowsByRecentAppearances = async (
   const broadwayShows = scores
     .filter(show => show.category === 'Broadway')
     .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
-    .slice(0, 3);
+    .slice(0, numberToReturn);
 
   const nonBroadwayShows = scores
     .filter(show => show.category !== 'Broadway')
     .sort((a, b) => b.recentActivityScore - a.recentActivityScore)
-    .slice(0, 3);
+    .slice(0, numberToReturn);
 
   return {
     broadway: broadwayShows,
@@ -423,6 +416,13 @@ export const getTopShowsByRecentAppearances = async (
 
 
 /**
+ * Get show details for the detail page
+ */
+export async function getShowDetails(showId: number): Promise<Show> {
+    return getShowWithStatistics(showId);
+}
+
+/**
  * Get show discount history for charts
  */
 export async function getShowDiscountHistory(showId: number): Promise<any[]> {
@@ -430,7 +430,7 @@ export async function getShowDiscountHistory(showId: number): Promise<any[]> {
     
     const { data, error } = await supabase
         .from(discountDatabase)
-        .select('performance_date as date, discount_percent, low_price, high_price, is_matinee')
+        .select('performance_date, discount_percent, low_price, high_price, is_matinee')
         .eq('show_id', showId)
         .gte('performance_date', startDate)
         .lte('performance_date', endDate)
@@ -468,10 +468,13 @@ export async function getShowSelloutTimes(showId: number): Promise<any[]> {
         const timeDifference = (performanceDateTime.getTime() - lastAvailableTime.getTime()) / (1000 * 60 * 60); // Hours
 
         return {
-            performanceDate: item.performance_date,
+            date: item.performance_date,
             performanceTime: performanceDateTime.getHours() + performanceDateTime.getMinutes() / 60,
+            lastAvailableTime: lastAvailableTime.getHours() + lastAvailableTime.getMinutes() / 60,
             timeDifference: Math.max(timeDifference, 0),
-            isMatinee: item.is_matinee
+            isMatinee: item.is_matinee,
+            lastAvailableDisplay: lastAvailableTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+            performanceTimeDisplay: performanceDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
         };
     });
 }

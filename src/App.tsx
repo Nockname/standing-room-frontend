@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './components/HomePage';
-import ShowDetail from './components/ShowDetail';
+// import ShowDetail from './components/ShowDetail';
+import ShowDetailNew from './components/ShowDetailNew';
 
 function App() {
   return (
@@ -10,7 +11,7 @@ function App() {
         <Header />
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/show/:showId" element={<ShowDetail />} />
+          <Route path="/show/:showId" element={<ShowDetailNew />} />
         </Routes>
       </div>
     </Router>

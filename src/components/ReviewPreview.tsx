@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ExternalLink, Star, Calendar, User } from 'lucide-react';
+import nytLogo from '../assets/new-york-times-vector-logo-seeklogo/new-york-times-seeklogo.svg';
 
 interface ReviewPreviewProps {
-  reviewUrl: string;
+  reviewUrl: string; 
   showTitle: string;
 }
 
@@ -66,11 +67,23 @@ const ReviewPreview: React.FC<ReviewPreviewProps> = ({ reviewUrl, showTitle }) =
     window.open(reviewUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const isNYTimesUrl = reviewUrl.includes('nytimes.com');
+
   if (loading) {
     return (
       <div className="border border-neutral-200 rounded-lg p-4 animate-pulse">
         <div className="flex gap-4">
-          <div className="w-16 h-16 bg-neutral-200 rounded flex-shrink-0"></div>
+          {isNYTimesUrl ? (
+            <div className="w-16 h-16 bg-white border border-neutral-200 rounded flex-shrink-0 flex items-center justify-center p-2">
+              <img 
+                src={nytLogo} 
+                alt="New York Times" 
+                className="w-full h-full object-contain opacity-50"
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 bg-neutral-200 rounded flex-shrink-0"></div>
+          )}
           <div className="flex-1">
             <div className="h-4 bg-neutral-200 rounded mb-2"></div>
             <div className="h-3 bg-neutral-200 rounded mb-1"></div>
@@ -94,16 +107,28 @@ const ReviewPreview: React.FC<ReviewPreviewProps> = ({ reviewUrl, showTitle }) =
     );
   }
 
+  const isNYTimes = metadata?.siteName === 'The New York Times';
+
   return (
     <button
       onClick={handleClick}
       className="border border-neutral-200 hover:border-primary-300 rounded-lg p-4 w-full text-left transition-all duration-200 hover:shadow-md group"
     >
       <div className="flex gap-4">
-        {/* Icon placeholder since we can't fetch images */}
-        <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded flex-shrink-0 flex items-center justify-center">
-          <Star className="h-8 w-8 text-white" />
-        </div>
+        {/* Dynamic icon based on site */}
+        {isNYTimes ? (
+          <div className="w-16 h-16 bg-white rounded flex-shrink-0 flex items-center justify-center p-2">
+            <img 
+              src={nytLogo} 
+              alt="New York Times" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+        ) : (
+          <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded flex-shrink-0 flex items-center justify-center">
+            <Star className="h-8 w-8 text-white" />
+          </div>
+        )}
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">

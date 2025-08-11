@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, DollarSign, Clock, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, Clock, TrendingUp, BarChart3 } from 'lucide-react';
 import { Bar, Line, Doughnut, Scatter } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -18,6 +18,7 @@ import {
 import { Show } from '../types';
 import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
 import { formatCurrency, formatPercentage } from '../lib/utils';
+import { chartColors, colors, hexToRgba } from '../lib/colors';
 import ReviewPreview from './ReviewPreview';
 
 // Register Chart.js components
@@ -39,7 +40,7 @@ interface ShowDetailProps {}
 interface ShowDiscountData {
   discount_percent: number;
   count: number;
-  date: string;
+  performance_date: string;
   day_of_week: string;
   low_price: number;
   high_price: number;
@@ -125,7 +126,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
             Back to Shows
           </button>
           <div className="card text-center py-12">
-            <div className="text-red-600 text-lg">
+            <div className="text-error-600 text-lg">
               {error || 'Show not found'}
             </div>
           </div>
@@ -178,7 +179,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
 
   // Calculate long-term trends (weekly aggregation)
   const weeklyTrends = discountHistory.reduce((acc, item) => {
-    const date = new Date(item.date);
+    const date = new Date(item.performance_date);
     const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
     const weekKey = weekStart.toISOString().split('T')[0];
     
@@ -210,7 +211,31 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     .sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime())
     .slice(-12); // Last 12 weeks
 
-  // Sellout scatterplot data - time difference vs performance time
+  // Day of week analysis for dual-axis bar chart
+  const dayOfWeekAnalysis = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    .map(day => {
+      const dayShows = selloutTimes.filter(s => {
+        const showDate = new Date(s.date);
+        return showDate.toLocaleDateString('en-US', { weekday: 'long' }) === day;
+      });
+      
+      const matineeShows = dayShows.filter(s => s.isMatinee);
+      const eveningShows = dayShows.filter(s => !s.isMatinee);
+      
+      return {
+        day: day.slice(0, 3),
+        matineeAvg: matineeShows.length > 0 
+          ? matineeShows.reduce((sum, s) => sum + s.timeDifference, 0) / matineeShows.length 
+          : 0,
+        eveningAvg: eveningShows.length > 0 
+          ? eveningShows.reduce((sum, s) => sum + s.timeDifference, 0) / eveningShows.length 
+          : 0,
+        matineeCount: matineeShows.length,
+        eveningCount: eveningShows.length
+      };
+    });
+
+  // Sellout scatterplot data - performance time vs time difference (swapped axes)
   const selloutScatterData = {
     datasets: [
       {
@@ -218,28 +243,30 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
         data: selloutTimes
           .filter(s => s.isMatinee)
           .map(s => ({
-            x: s.timeDifference,
-            y: s.performanceTime,
+            x: s.performanceTime,
+            y: s.timeDifference,
             ...s
           })),
-        backgroundColor: 'rgba(245, 158, 11, 0.8)', // amber
-        borderColor: 'rgba(245, 158, 11, 1)',
+        backgroundColor: chartColors.primary[800],
+        borderColor: chartColors.primary[600],
         pointRadius: 6,
         pointHoverRadius: 8,
+        yAxisID: 'y',
       },
       {
         label: 'Evening Shows',
         data: selloutTimes
           .filter(s => !s.isMatinee)
           .map(s => ({
-            x: s.timeDifference,
-            y: s.performanceTime,
+            x: s.performanceTime,
+            y: s.timeDifference,
             ...s
           })),
-        backgroundColor: 'rgba(168, 85, 247, 0.8)', // violet
-        borderColor: 'rgba(168, 85, 247, 1)',
+        backgroundColor: chartColors.secondary[800],
+        borderColor: chartColors.secondary[600],
         pointRadius: 6,
         pointHoverRadius: 8,
+        yAxisID: 'y1',
       }
     ]
   };
@@ -249,27 +276,31 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     plugins: {
       legend: {
         position: 'top' as const,
-        labels: { color: 'rgba(100, 116, 139, 1)' }
+        labels: { color: chartColors.neutral[500] }
       },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-        titleColor: 'rgba(248, 250, 252, 1)',
-        bodyColor: 'rgba(248, 250, 252, 1)',
-        borderColor: 'rgba(20, 184, 166, 0.3)',
+        backgroundColor: chartColors.tooltipBg,
+        titleColor: chartColors.tooltipText,
+        bodyColor: chartColors.tooltipText,
+        borderColor: chartColors.accent[600],
         borderWidth: 1,
         callbacks: {
           title: (context: any) => {
-            const point = context[0].raw;
-            return `${point.isMatinee ? 'Matinee' : 'Evening'} Show - ${point.date}`;
+            const count = context.length;
+            if (count === 1) {
+              const point = context[0].raw;
+              return `${point.isMatinee ? 'Matinee' : 'Evening'} Show - ${point.date}`;
+            } else {
+              return `${count} shows selected`;
+            }
           },
           label: (context: any) => {
             const point = context.raw;
             return [
-              `Time until performance: ${point.timeDifference.toFixed(1)} hours`,
-              `Last discount available: ${point.lastAvailableDisplay} ET`,
-              `Performance time: ${point.performanceTimeDisplay} ET`,
-              `Discount: ${point.discountPercent}%`,
-              `Price range: $${point.lowPrice} - $${point.highPrice}`
+              `${point.performanceTimeDisplay} ET ${point.isMatinee ? 'matinee' : 'evening'} on ${point.date}`,
+              `Last discount available at ${point.lastAvailableDisplay} ET`,
+              `Sold out ${point.timeDifference.toFixed(1)} hours before showtime`,
+              `${point.discountPercent}% discount, with price range $${point.lowPrice} - $${point.highPrice}`,
             ];
           }
         }
@@ -281,24 +312,11 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
         position: 'bottom' as const,
         title: {
           display: true,
-          text: 'Hours Between Last Discount and Performance',
-          color: 'rgba(100, 116, 139, 1)'
-        },
-        ticks: { 
-          color: 'rgba(100, 116, 139, 1)',
-          callback: (value: any) => `${value}h`
-        },
-        grid: { color: 'rgba(226, 232, 240, 0.3)' }
-      },
-      y: {
-        type: 'linear' as const,
-        title: {
-          display: true,
           text: 'Performance Time (Eastern)',
-          color: 'rgba(100, 116, 139, 1)'
+          color: chartColors.neutral[500]
         },
         ticks: { 
-          color: 'rgba(100, 116, 139, 1)',
+          color: chartColors.neutral[500],
           callback: (value: any) => {
             // Convert decimal hours to time format
             const hour = Math.floor(value);
@@ -314,9 +332,40 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
             }
           }
         },
-        grid: { color: 'rgba(226, 232, 240, 0.5)' },
+        grid: { color: chartColors.grid },
         min: 12, // Start at noon
         max: 21  // End at 9 PM
+      },
+      y: {
+        type: 'linear' as const,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Hours Before Performance (Matinee)',
+          color: chartColors.primary[600]
+        },
+        ticks: { 
+          color: chartColors.primary[600],
+          callback: (value: any) => `${value}h`
+        },
+        grid: { color: chartColors.grid }
+      },
+      y1: {
+        type: 'linear' as const,
+        position: 'right' as const,
+        title: {
+          display: true,
+          text: 'Hours Before Performance (Evening)',
+          color: chartColors.secondary[600]
+        },
+        ticks: { 
+          color: chartColors.secondary[600],
+          callback: (value: any) => `${value}h`
+        },
+        grid: { 
+          drawOnChartArea: false, // Don't overlay grid lines
+          color: chartColors.grid 
+        }
       },
     },
   };
@@ -327,8 +376,8 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     datasets: [{
       label: 'Discount Appearances',
       data: dayAvailability.map(d => d.count),
-      backgroundColor: 'rgba(20, 184, 166, 0.8)',
-      borderColor: 'rgba(20, 184, 166, 1)',
+      backgroundColor: chartColors.accent[800],
+      borderColor: chartColors.accent[600],
       borderWidth: 1,
       borderRadius: 6,
     }]
@@ -339,11 +388,11 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     datasets: [{
       data: discountDistribution.map(d => d.count),
       backgroundColor: [
-        'rgba(34, 197, 94, 0.8)',
-        'rgba(20, 184, 166, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(168, 85, 247, 0.8)',
-        'rgba(239, 68, 68, 0.8)',
+        chartColors.success[500],
+        chartColors.accent[800],
+        chartColors.primary[800],
+        chartColors.secondary[800],
+        chartColors.error[500],
       ],
       borderWidth: 0,
     }]
@@ -355,14 +404,101 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
       label: 'Average Discount %',
       data: trendData.map(d => d.avgDiscount),
       fill: true,
-      backgroundColor: 'rgba(20, 184, 166, 0.1)',
-      borderColor: 'rgba(20, 184, 166, 1)',
-      pointBackgroundColor: 'rgba(20, 184, 166, 1)',
+      backgroundColor: hexToRgba(colors.accent[500], 0.1), // accent with very low opacity
+      borderColor: chartColors.accent[600],
+      pointBackgroundColor: chartColors.accent[600],
       pointBorderColor: '#fff',
       pointBorderWidth: 2,
       tension: 0.3,
       borderWidth: 2,
     }]
+  };
+
+  // Dual-axis bar chart data for day of week analysis
+  const dayOfWeekChartData = {
+    labels: dayOfWeekAnalysis.map(d => d.day),
+    datasets: [
+      {
+        label: 'Matinee Shows (Avg Hours Before)',
+        data: dayOfWeekAnalysis.map(d => d.matineeAvg),
+        backgroundColor: chartColors.primary[800],
+        borderColor: chartColors.primary[600],
+        borderWidth: 1,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Evening Shows (Avg Hours Before)',
+        data: dayOfWeekAnalysis.map(d => d.eveningAvg),
+        backgroundColor: chartColors.secondary[800],
+        borderColor: chartColors.secondary[600],
+        borderWidth: 1,
+        yAxisID: 'y1',
+      }
+    ]
+  };
+
+  const dayOfWeekChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: { color: chartColors.neutral[500] }
+      },
+      tooltip: {
+        backgroundColor: chartColors.tooltipBg,
+        titleColor: chartColors.tooltipText,
+        bodyColor: chartColors.tooltipText,
+        borderColor: chartColors.accent[600],
+        borderWidth: 1,
+        callbacks: {
+          afterLabel: (context: any) => {
+            const dayData = dayOfWeekAnalysis[context.dataIndex];
+            const isMatinee = context.datasetIndex === 0;
+            const count = isMatinee ? dayData.matineeCount : dayData.eveningCount;
+            return `(${count} shows)`;
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: chartColors.neutral[500] },
+        grid: { color: chartColors.grid }
+      },
+      y: {
+        type: 'linear' as const,
+        position: 'left' as const,
+        title: {
+          display: true,
+          text: 'Hours Before (Matinee)',
+          color: chartColors.primary[600]
+        },
+        ticks: { 
+          color: chartColors.primary[600],
+          callback: (value: any) => `${value}h`
+        },
+        grid: { color: chartColors.grid },
+        beginAtZero: true
+      },
+      y1: {
+        type: 'linear' as const,
+        position: 'right' as const,
+        title: {
+          display: true,
+          text: 'Hours Before (Evening)',
+          color: chartColors.secondary[600]
+        },
+        ticks: { 
+          color: chartColors.secondary[600],
+          callback: (value: any) => `${value}h`
+        },
+        grid: { 
+          drawOnChartArea: false,
+          color: chartColors.grid 
+        },
+        beginAtZero: true
+      },
+    },
   };
 
 
@@ -372,21 +508,21 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-        titleColor: 'rgba(248, 250, 252, 1)',
-        bodyColor: 'rgba(248, 250, 252, 1)',
-        borderColor: 'rgba(20, 184, 166, 0.3)',
+        backgroundColor: chartColors.tooltipBg,
+        titleColor: chartColors.tooltipText,
+        bodyColor: chartColors.tooltipText,
+        borderColor: chartColors.accent[600],
         borderWidth: 1,
       },
     },
     scales: {
       x: {
-        ticks: { color: 'rgba(100, 116, 139, 1)' },
-        grid: { color: 'rgba(226, 232, 240, 0.3)' }
+        ticks: { color: chartColors.neutral[500] },
+        grid: { color: chartColors.grid }
       },
       y: {
-        ticks: { color: 'rgba(100, 116, 139, 1)' },
-        grid: { color: 'rgba(226, 232, 240, 0.5)' },
+        ticks: { color: chartColors.neutral[500] },
+        grid: { color: chartColors.grid },
         beginAtZero: true
       },
     },
@@ -397,13 +533,13 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
     plugins: {
       legend: {
         position: 'bottom' as const,
-        labels: { color: 'rgba(100, 116, 139, 1)' }
+        labels: { color: chartColors.neutral[500] }
       },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-        titleColor: 'rgba(248, 250, 252, 1)',
-        bodyColor: 'rgba(248, 250, 252, 1)',
-        borderColor: 'rgba(20, 184, 166, 0.3)',
+        backgroundColor: chartColors.tooltipBg,
+        titleColor: chartColors.tooltipText,
+        bodyColor: chartColors.tooltipText,
+        borderColor: chartColors.accent[600],
         borderWidth: 1,
       },
     },
@@ -429,7 +565,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
                 {show.title || 'Show Title'}
               </h1>
               {show.theater && (
-                <p className="text-lg text-neutral-600 mb-4">{show.theater}</p>
+                <p className="text-lg text-neutral-400 mb-4">{show.theater}</p>
               )}
               <div className="flex flex-wrap gap-3 mb-4">
                 {show.category && (
@@ -486,7 +622,153 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
           </div>
         </div>
 
-        {/* Charts Grid */}
+        {/* When Do TKTS Discounts Sell Out Section */}
+        {selloutTimes.length > 0 && (
+          <div className="card mb-8">
+            <h2 className="text-2xl font-bold text-neutral-900 mb-6">
+              When Do TKTS Discounts Sell Out for {show.title}?
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Key Statistics */}
+              <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-6 border border-primary-200">
+                <h4 className="text-lg font-semibold text-primary-800 mb-3">Matinee Shows</h4>
+                <div className="space-y-2">
+                  {(() => {
+                    const matineeShows = selloutTimes.filter(s => s.isMatinee);
+                    const avgHours = matineeShows.length > 0 
+                      ? matineeShows.reduce((sum, s) => sum + s.timeDifference, 0) / matineeShows.length 
+                      : 0;
+                    const longestBeforeSellout = matineeShows.length > 0 
+                      ? Math.max(...matineeShows.map(s => s.timeDifference))
+                      : 0;
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-primary-700">Average sellout time:</span>
+                          <span className="font-semibold text-primary-800">{avgHours.toFixed(1)}h before</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-primary-700">Earliest sellout:</span>
+                          <span className="font-semibold text-primary-800">{longestBeforeSellout.toFixed(1)}h before</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-secondary-50 to-secondary-100 rounded-lg p-6 border border-secondary-200">
+                <h4 className="text-lg font-semibold text-secondary-800 mb-3">Evening Shows</h4>
+                <div className="space-y-2">
+                  {(() => {
+                    const eveningShows = selloutTimes.filter(s => !s.isMatinee);
+                    const avgHours = eveningShows.length > 0 
+                      ? eveningShows.reduce((sum, s) => sum + s.timeDifference, 0) / eveningShows.length 
+                      : 0;
+                    const longestBeforeSellout = eveningShows.length > 0 
+                      ? Math.max(...eveningShows.map(s => s.timeDifference))
+                      : 0;
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-700">Average sellout time:</span>
+                          <span className="font-semibold text-secondary-800">{avgHours.toFixed(1)}h before</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-secondary-700">Earliest sellout:</span>
+                          <span className="font-semibold text-secondary-800">{longestBeforeSellout.toFixed(1)}h before</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Key Insights */}
+              <div className="bg-gradient-to-br from-accent-50 to-accent-100 rounded-lg p-6 border border-accent-200">
+                <h4 className="text-lg font-semibold text-accent-800 mb-3">Key Insights</h4>
+                <div className="space-y-3 text-sm">
+                  {(() => {
+                    const matineeShows = selloutTimes.filter(s => s.isMatinee);
+                    const eveningShows = selloutTimes.filter(s => !s.isMatinee);
+                    const matineeAvg = matineeShows.length > 0 
+                      ? matineeShows.reduce((sum, s) => sum + s.timeDifference, 0) / matineeShows.length 
+                      : 0;
+                    const eveningAvg = eveningShows.length > 0 
+                      ? eveningShows.reduce((sum, s) => sum + s.timeDifference, 0) / eveningShows.length 
+                      : 0;
+                    
+                    const insights = [];
+                    
+                    if (matineeShows.length > 0 && eveningShows.length > 0) {
+                      if (matineeAvg > eveningAvg + 2) {
+                        insights.push("Matinee shows typically sell out earlier");
+                      } else if (eveningAvg > matineeAvg + 2) {
+                        insights.push("Evening shows typically sell out earlier");
+                      } else {
+                        insights.push("Matinee and evening shows sell out at similar times");
+                      }
+                    }
+                    
+                    const allShows = selloutTimes;
+                    const avgOverall = allShows.reduce((sum, s) => sum + s.timeDifference, 0) / allShows.length;
+                    
+                    if (avgOverall < 12) {
+                      insights.push("Discounts typically remain available close to showtime");
+                    } else if (avgOverall > 24) {
+                      insights.push("This show often sells out early - check TKTS in the morning");
+                    } else {
+                      insights.push("Moderate sellout timing - check TKTS in the afternoon");
+                    }
+                    
+                    const longestBeforeOverall = Math.max(...allShows.map(s => s.timeDifference));
+                    if (longestBeforeOverall > 30) {
+                      insights.push("Some performances sell out very early (30+ hours before)");
+                    }
+                    
+                    return insights.map((insight, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-primary-600 rounded-full mt-2 flex-shrink-0"></div>
+                        <span className="text-primary-700">{insight}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Sellout Pattern Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Sellout Times Scatterplot */}
+              <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                <h4 className="text-lg font-semibold text-neutral-900 mb-2 flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary-600" />
+                  Sellout Timing by Performance Time
+                </h4>
+                <div className="text-sm text-neutral-600 mb-4">
+                  How far in advance discounts sell out based on performance time
+                </div>
+                <div className="h-80">
+                  <Scatter data={selloutScatterData} options={scatterOptions} />
+                </div>
+              </div>
+
+              {/* Day of Week Sellout Analysis - Dual Axis Bar Chart */}
+              <div className="bg-white rounded-lg border border-neutral-200 p-6">
+                <h4 className="text-lg font-semibold text-neutral-900 mb-2 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary-600" />
+                  Sellout Patterns by Day of Week
+                </h4>
+                <div className="text-sm text-neutral-600 mb-4">
+                  Average hours before performance when discounts sell out by day and show type
+                </div>
+                <div className="h-80">
+                  <Bar data={dayOfWeekChartData} options={dayOfWeekChartOptions} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}        {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Best Days */}
           <div className="card">
@@ -520,22 +802,6 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
               <Line data={trendsChartData} options={chartOptions} />
             </div>
           </div>
-
-          {/* Sellout Times Scatterplot */}
-          {selloutTimes.length > 0 && (
-            <div className="card">
-              <h3 className="text-xl font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary-600" />
-                Sellout Timing Analysis
-              </h3>
-              <div className="text-sm text-neutral-600 mb-4">
-                Time between last discount availability and performance time (Eastern Time)
-              </div>
-              <div className="h-80">
-                <Scatter data={selloutScatterData} options={scatterOptions} />
-              </div>
-            </div>
-          )}
 
           {/* Show additional info if no discount history */}
           {discountHistory.length === 0 && (

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Show, DayOfWeek } from '../types';
 import { DollarSign, Percent, Clock, TrendingUp, HelpCircle } from 'lucide-react';
+import { shortenDayName, shortenShowTimeLabel } from '../lib/utils';
 
 interface ShowCardProps {
   show: Show;
@@ -23,15 +24,18 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
 
   const dayData = getDayData(selectedDay);
   const displayPriceRange = dayData?.average_price_range || show.average_price_range;
-  const displayDiscount = dayData?.average_discount || show.average_discount;
+  const displayDiscount = (() => {
+    const discount = dayData?.average_discount || show.average_discount;
+    return discount != null ? Number(discount) : 0;
+  })();
   const displayAvailability = selectedDay && dayData 
     ? dayData.availability_percentage 
     : show.availability_frequency * 100;
 
   // Generate dynamic labels based on current filters
   const getAvailabilityLabel = () => {
-    const showTimeLabel = showTime === 'matinee' ? 'Matinee' : showTime === 'evening' ? 'Evening' : '';
-    const dayLabel = selectedDay ? `${selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)}` : '';
+    const showTimeLabel = shortenShowTimeLabel(showTime);
+    const dayLabel = shortenDayName(selectedDay);
     
     if (selectedDay && showTime && showTime !== 'all') {
       return `${dayLabel} ${showTimeLabel} Availability`;
@@ -45,8 +49,8 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
   };
 
   const getPriceLabel = () => {
-    const showTimeLabel = showTime === 'matinee' ? 'Matinee' : showTime === 'evening' ? 'Evening' : '';
-    const dayLabel = selectedDay ? selectedDay : '';
+    const showTimeLabel = shortenShowTimeLabel(showTime);
+    const dayLabel = shortenDayName(selectedDay);
     
     if (selectedDay && showTime && showTime !== 'all') {
       return `Average ${dayLabel} ${showTimeLabel} Price`;
@@ -60,8 +64,8 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
   };
 
   const getDiscountLabel = () => {
-    const showTimeLabel = showTime === 'matinee' ? 'Matinee' : showTime === 'evening' ? 'Evening' : '';
-    const dayLabel = selectedDay ? selectedDay : '';
+    const showTimeLabel = shortenShowTimeLabel(showTime);
+    const dayLabel = shortenDayName(selectedDay);
     
     if (selectedDay && showTime && showTime !== 'all') {
       return `Average ${dayLabel} ${showTimeLabel} Discount`;
@@ -183,7 +187,7 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
         )}
 
         {/* Discount */}
-        {displayDiscount && (
+        {displayDiscount > 0 && (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Percent className="h-4 w-4 text-neutral-700" />
