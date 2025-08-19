@@ -8,11 +8,14 @@ import MobileFilter from './MobileFilter';
 import Dashboard from './Dashboard';
 import LoadingSkeleton from './LoadingSkeleton';
 
+
 function HomePage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [filteredShows, setFilteredShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterOptions>({
     dayOfWeek: 'all',
@@ -28,6 +31,11 @@ function HomePage() {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const SHOWS_PER_PAGE = 24;
+
+  // Initial load on component mount
+  useEffect(() => {
+    loadShows();
+  }, []);
 
   useEffect(() => {
     // Set filter loading only if we already have shows (not initial load)
@@ -55,13 +63,37 @@ function HomePage() {
   const loadShows = async () => {
     try {
       setLoading(true);
+      
+      // For initial load, show skeleton immediately
+      // For subsequent loads, delay showing skeleton by 200ms
+      if (isInitialLoad) {
+        setShowLoadingSkeleton(true);
+      } else {
+        const loadingTimer = setTimeout(() => {
+          setShowLoadingSkeleton(true);
+        }, 200);
+        
+        const data = await getAllShowsWithStatistics(filters.showTime);
+        setShows(data);
+        
+        // Clear the timer since loading completed
+        clearTimeout(loadingTimer);
+        
+        setLoading(false);
+        setShowLoadingSkeleton(false);
+        setFilterLoading(false);
+        return;
+      }
+      
       const data = await getAllShowsWithStatistics(filters.showTime);
       setShows(data);
     } catch (error) {
       console.error('Error loading shows:', error);
     } finally {
       setLoading(false);
+      setShowLoadingSkeleton(false);
       setFilterLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -172,7 +204,7 @@ function HomePage() {
     });
   };
 
-  if (loading) {
+  if (loading && showLoadingSkeleton) {
     return (
       <div className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -184,6 +216,7 @@ function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Dashboard */}
         <Dashboard shows={shows} />

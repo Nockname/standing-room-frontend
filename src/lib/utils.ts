@@ -46,7 +46,7 @@ function parseLocalDate(dateStr: string): Date {
  * @param utcDate The UTC date.
  * @returns Date string in 'YYYY-M-D' format in New York time.
  */
-function parseNYDate(utcDate: Date): string {
+export function parseNYDate(utcDate: Date): string {
     // Convert to NY time
     const nyDate = new Date(
         utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' })

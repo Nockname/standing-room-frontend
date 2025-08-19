@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { Show, ShowWithRecentActivity, DayOfWeek } from '../types/index.js';
 import { dayOfWeekCounts, parseNYString, getTotalDateRange, getLastWeekDateRange } from './utils.ts';
+import { setCachedData, getCachedData, getCacheKey } from './cache.ts';
+import { useEffect } from 'react';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://exgwstrejyolhvwtzijh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4Z3dzdHJlanlvbGh2d3R6aWpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyOTgwMjgsImV4cCI6MjA2ODg3NDAyOH0.w0-FOpxjJnTLYxyS5frE9olOh9LnJVJ1k_zYeYE7bwE';
@@ -11,6 +13,166 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+/* ------------- TDF EMAIL SUBSCRIPTIONS ------------- */
+
+/**
+ * Subscribe to notifications using passwordless magic link
+ */
+export async function subscribeToNotifications(email: string, preferences = { broadway: true, offBroadway: false, offOffBroadway: false, frequency: 'immediate' }) {
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        data: {
+          subscription_preferences: preferences,
+          subscribed_at: new Date().toISOString(),
+        },
+        emailRedirectTo: `${window.location.origin}/tdf/preferences?verified=true`
+      }
+    });
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      message: 'Please check your email for a magic link to confirm your subscription.',
+      needsVerification: true
+    };
+
+  } catch (error: any) {
+    console.error('Subscription error:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to subscribe. Please try again.',
+      needsVerification: false
+    };
+  }
+}
+
+/**
+ * Update user subscription preferences
+ */
+export async function updateSubscriptionPreferences(preferences: { 
+  broadway?: boolean; 
+  offBroadway?: boolean; 
+  offOffBroadway?: boolean;
+  frequency?: 'immediate' | 'daily' | 'weekly';
+}) {
+  try {
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        subscription_preferences: preferences,
+        updated_at: new Date().toISOString(),
+      }
+    });
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      message: 'Preferences updated successfully!',
+      user: data.user
+    };
+
+  } catch (error: any) {
+    console.error('Update preferences error:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to update preferences. Please try again.'
+    };
+  }
+}
+
+/**
+ * Get user's current subscription preferences
+ */
+export async function getUserPreferences() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return {
+        success: false,
+        preferences: null,
+        message: 'User not authenticated'
+      };
+    }
+
+    const preferences = user.user_metadata?.subscription_preferences || { 
+      broadway: true, 
+      offBroadway: false, 
+      offOffBroadway: false,
+      frequency: 'immediate' 
+    };
+
+    return {
+      success: true,
+      preferences,
+      user,
+      email: user.email
+    };
+
+  } catch (error: any) {
+    return {
+      success: false,
+      preferences: null,
+      message: error.message || 'Failed to get preferences'
+    };
+  }
+}
+
+/**
+ * Check if user is currently authenticated and verified
+ */
+export async function checkAuthStatus() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return {
+      isAuthenticated: !!user,
+      isVerified: !!user?.email_confirmed_at,
+      user
+    };
+  } catch (error) {
+    return {
+      isAuthenticated: false,
+      isVerified: false,
+      user: null
+    };
+  }
+}
+
+/**
+ * Get the current authenticated user
+ */
+export async function getCurrentUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+/**
+ * Sign out the current user
+ */
+export async function signOut() {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+    return {
+      success: true,
+      message: 'Successfully signed out'
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Unknown error occurred'
+    };
+  }
+}
 
 /* ------------- GENERAL FETCHING METHODS ------------- */
 
@@ -50,6 +212,7 @@ async function getShowInfo(showId: number) {
  * Get discounts for a specific show where performance date is within the date range
  */
 async function getShowDiscounts(showId: number, startDate?: string, endDate?: string, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
+
     const dateRange = startDate && endDate ? { startDate, endDate } : getTotalDateRange();
     
     let query = supabase
@@ -220,10 +383,20 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
 
 
 
+
 /**
- * Get all shows with their statistics
+ * Get all shows with their statistics (with localStorage caching)
  */
 export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show[]> {
+    const cached = getCachedData(await getCacheKey(`getAllShowsWithStatistics-${showTimeFilter}`));
+
+    // Check if we have valid cached data
+    if (cached) {
+        return cached;
+    }
+    
+    console.log(`Fetching fresh data for ${showTimeFilter}...`);
+    
     const showIds = await getAllShowIds();
     
     // Process shows in parallel with some concurrency control
@@ -242,8 +415,12 @@ export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee
         results.push(...batchResults.filter(show => show !== null) as Show[]);
     }
     
+    // Cache the results in localStorage
+    setCachedData(await getCacheKey(`getAllShowsWithStatistics-${showTimeFilter}`), results);
+
     return results;
 }
+
 
 
 /* ------------- CALCULATE DASHBOARD STATISTICS ------------- */
@@ -289,6 +466,16 @@ export const getOverallStats = (shows: Show[]) => {
  * Get weekly discount trends (also known as long term trends) from aggregated data
  */
 export async function getWeeklyDiscountTrends() {
+
+    const cached = getCachedData(await getCacheKey(`getWeeklyDiscountTrends`));
+
+    // Check if we have valid cached data
+    if (cached) {
+        console.log('Using cached weekly discount trends data');
+        return cached;
+    }
+    console.log('Fetching fresh weekly discount trends data');
+
     try {
         const { data: weeklyStats, error } = await supabase
             .from('Weekly Statistics')
@@ -300,13 +487,7 @@ export async function getWeeklyDiscountTrends() {
             throw new Error(`Error fetching weekly statistics: ${error.message}`);
         }
 
-        if (!weeklyStats || weeklyStats.length === 0) {
-            // Fallback: generate weekly trends from discount data
-            console.warn('No weekly statistics found.');
-            return [];
-        }
-
-        return weeklyStats.map(stat => ({
+        const discountTrends = weeklyStats.map(stat => ({
             week: new Date(stat.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             totalDiscount: stat.cumulative_discount_percent || 0,
             weekStart: stat.week_start,
@@ -316,6 +497,17 @@ export async function getWeeklyDiscountTrends() {
             averageLowPrice: stat.average_low_price,
             averageHighPrice: stat.average_high_price
         }));
+
+        if (!weeklyStats || weeklyStats.length === 0) {
+            // Fallback: generate weekly trends from discount data
+            console.warn('No weekly statistics found.');
+            setCachedData(await getCacheKey(`getWeeklyDiscountTrends`), []);
+            return [];
+        }
+
+        setCachedData(await getCacheKey(`getWeeklyDiscountTrends`), discountTrends);
+
+        return discountTrends;
     } catch (error) {
         console.error('Error fetching weekly discount trends:', error);
         return [];
@@ -477,4 +669,31 @@ export async function getShowSelloutTimes(showId: number): Promise<any[]> {
             performanceTimeDisplay: performanceDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
         };
     });
+}
+
+/* ------------- BACKGROUND CACHE ------------- */
+
+// Pre-load TKTS data in the background when landing page loads
+export async function preload() {
+    useEffect(() => {
+    const preloadCache = async () => {
+      try {
+        // Run all data fetches in parallel
+        await Promise.all([
+          getAllShowsWithStatistics('all'),
+          getAllShowsWithStatistics('matinee'),
+          getAllShowsWithStatistics('evening'),
+          getWeeklyDiscountTrends()
+        ]);
+      } catch (error) {
+        console.warn('Background cache pre-loading failed:', error);
+
+      }
+    };
+
+    // Delay the cache loading slightly to avoid blocking the initial page render
+    const timeoutId = setTimeout(preloadCache, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
 }

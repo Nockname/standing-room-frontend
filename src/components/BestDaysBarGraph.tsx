@@ -4,7 +4,7 @@ import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from '
 import { ChevronDown } from 'lucide-react';
 import { DayOfWeek } from '../types';
 import { getBestDaysData } from '../lib/supabase';
-import { chartColors } from '../lib/colors';
+import { primary } from '../lib/colors';
 
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -72,7 +72,7 @@ const BestDaysBarGraph: React.FC<BestDaysBarGraphProps> = () => {
       {
         label: 'Avg Discounts',
         data: orderedData.map(d => d.averageNumberOfDiscounts),
-        backgroundColor: chartColors.primary[500], // primary-500 color from centralized colors
+        backgroundColor: primary[500], // primary-500 color from centralized colors
         borderRadius: 6,
       },
     ],

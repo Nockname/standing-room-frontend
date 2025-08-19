@@ -17,7 +17,7 @@ import {
 } from 'chart.js';
 import { Show } from '../types';
 import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
-import { chartColors } from '../lib/colors';
+import { primary, secondary, accent } from '../lib/colors';
 import ReviewPreview from './ReviewPreview';
 
 // Register Chart.js components
@@ -119,7 +119,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
       <div className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/tkts')}
             className="btn-secondary mb-6 flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -288,7 +288,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
           {
             label: 'Matinee Shows (Avg Hours Before)',
             data: dayOfWeekAnalysis.map(d => d.matineeAvg),
-            backgroundColor: chartColors.primary[600],
+            backgroundColor: primary[600],
             borderWidth: 1,
             borderRadius: 6,
             yAxisID: 'y',
@@ -302,7 +302,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
           {
             label: 'Evening Shows (Avg Hours Before)',
             data: dayOfWeekAnalysis.map(d => d.eveningAvg),
-            backgroundColor: chartColors.primary[500],
+            backgroundColor: primary[500],
             borderWidth: 1,
             borderRadius: 6,
             yAxisID: 'y',
@@ -316,7 +316,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
           {
             label: 'Matinee Shows (Avg Hours Before)',
             data: dayOfWeekAnalysis.map(d => d.matineeAvg),
-            backgroundColor: chartColors.primary[600],
+            backgroundColor: primary[600],
             borderWidth: 1,
             borderRadius: 6,
             yAxisID: 'y',
@@ -324,7 +324,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
           {
             label: 'Evening Shows (Avg Hours Before)',
             data: dayOfWeekAnalysis.map(d => d.eveningAvg),
-            backgroundColor: chartColors.primary[500],
+            backgroundColor: primary[500],
             borderWidth: 1,
             borderRadius: 6,
             yAxisID: 'y',
@@ -341,13 +341,13 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
     plugins: {
       legend: {
         position: 'top' as const,
-        labels: { color: chartColors.neutral[500] }
+        labels: { color: secondary[500] }
       },
       tooltip: {
-        backgroundColor: chartColors.tooltipBg,
-        titleColor: chartColors.tooltipText,
-        bodyColor: chartColors.tooltipText,
-        borderColor: chartColors.accent[600],
+        backgroundColor: 'rgba(8, 10, 13, 0.9)', // neutral-900 with opacity
+        titleColor: '#d4ddea', // neutral-100
+        bodyColor: '#d4ddea', // neutral-100
+        borderColor: accent[600],
         borderWidth: 1,
         callbacks: {
           afterLabel: (context: any) => {
@@ -361,8 +361,8 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
     },
     scales: {
       x: {
-        ticks: { color: chartColors.neutral[500] },
-        grid: { color: chartColors.grid }
+        ticks: { color: secondary[500] },
+        grid: { color: 'rgba(156, 169, 193, 0.3)' } // neutral-200 with opacity
       },
       y: {
         type: 'linear' as const,
@@ -370,13 +370,13 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
         title: {
           display: true,
           text: 'Hours Before Performance',
-          color: chartColors.neutral[900]
+          color: secondary[900]
         },
         ticks: { 
-          color: chartColors.neutral[900],
+          color: secondary[900],
           callback: (value: any) => `${value}h`
         },
-        grid: { color: chartColors.grid },
+        grid: { color: 'rgba(156, 169, 193, 0.3)' }, // neutral-200 with opacity
         beginAtZero: true
       }
     },
@@ -387,7 +387,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/tkts')}
           className="btn-secondary mb-6 flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />

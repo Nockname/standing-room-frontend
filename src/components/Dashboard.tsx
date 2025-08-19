@@ -69,13 +69,13 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
               </div>
               <div className="text-center flex-1">
                 <div className="text-xl sm:text-2xl md:text-3xl font-bold">
-                {stats.averageDiscount ? `${stats.averageDiscount.toFixed(1)}%` : '—'}
+                {stats.averageDiscount ? `${stats.averageDiscount.toFixed(1)}%` : ''}
                 </div>
                 <div className="text-xs sm:text-sm opacity-90">Average Discount</div>
               </div>
               <div className="text-center flex-1">
                 <div className="text-xl sm:text-2xl md:text-3xl font-bold">
-                {stats.averagePriceRange ? `$${stats.averagePriceRange[0]} - $${stats.averagePriceRange[1]}` : '—'}
+                {stats.averagePriceRange ? `$${stats.averagePriceRange[0]} - $${stats.averagePriceRange[1]}` : ''}
                 </div>
                 <div className="text-xs sm:text-sm opacity-90">Average Price Range</div>
               </div>
@@ -88,7 +88,7 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
       <div className="hidden lg:block card relative">
         <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
           <Award className="h-5 w-5 text-warning-500" />
-          Top Shows by Number of Performances Last Week that Appeared on TKTS
+          Top Shows by Performances on TKTS Last Week
         </h3>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -118,7 +118,24 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
                 </div>
               ))}
               {topShows.broadway.length === 0 && (
-                <div className="text-center text-neutral-700 py-4">Loading Broadway shows...</div>
+                <div className="space-y-2">
+                  {/* Skeleton loaders to match the height of actual content */}
+                  {[...Array(3)].map((_, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b border-neutral-300 last:border-b-0 animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 bg-neutral-300 rounded-full"></div>
+                        <div className="min-h-[2.5rem] flex flex-col justify-center">
+                          <div className="h-4 bg-neutral-300 rounded w-32 mb-1"></div>
+                          <div className="h-3 bg-neutral-200 rounded w-24"></div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-4 bg-neutral-300 rounded w-8 mb-1"></div>
+                        <div className="h-3 bg-neutral-200 rounded w-16"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -152,7 +169,24 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
                 </div>
               ))}
               {topShows.nonBroadway.length === 0 && (
-                <div className="text-center text-neutral-700 py-4">Loading Off-Broadway shows...</div>
+                <div className="space-y-2">
+                  {/* Skeleton loaders to match the height of actual content */}
+                  {[...Array(3)].map((_, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b border-neutral-300 last:border-b-0 animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 bg-neutral-300 rounded-full"></div>
+                        <div className="min-h-[2.5rem] flex flex-col justify-center">
+                          <div className="h-4 bg-neutral-300 rounded w-32 mb-1"></div>
+                          <div className="h-3 bg-neutral-200 rounded w-24"></div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="h-4 bg-neutral-300 rounded w-8 mb-1"></div>
+                        <div className="h-3 bg-neutral-200 rounded w-16"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

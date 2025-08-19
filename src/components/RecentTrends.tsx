@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler } from 'chart.js';
-import { colors, hexToRgba } from '../lib/colors';
+import { primary } from '../lib/colors';
 
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
+
+// Helper function to convert hex colors to rgba
+const hexToRgba = (hex: string, alpha: number = 1): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 interface WeeklyData {
   week: string;
@@ -40,8 +48,8 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
       dataKey: 'totalDiscounts',
       chartLabel: 'Total Discounts (per week)',
       yAxisLabel: 'Number of Discounts',
-      color: colors.primary[500],
-      backgroundColor: hexToRgba(colors.primary[500], 0.1),
+      color: primary[500],
+      backgroundColor: hexToRgba(primary[500], 0.1),
     },
     {
       value: 'discount',
@@ -49,8 +57,8 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
       dataKey: 'totalDiscount',
       chartLabel: 'Cumulative Discount Percent (per week)',
       yAxisLabel: 'Cumulative Discount Percent',
-      color: colors.primary[500],
-      backgroundColor: hexToRgba(colors.primary[500], 0.1),
+      color: primary[500],
+      backgroundColor: hexToRgba(primary[500], 0.1),
     },
     {
       value: 'shows',
@@ -58,8 +66,8 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
       dataKey: 'totalShows',
       chartLabel: 'Unique Shows with Discounts (per week)',
       yAxisLabel: 'Number of Shows',
-      color: colors.primary[500],
-      backgroundColor: hexToRgba(colors.primary[500], 0.1),
+      color: primary[500],
+      backgroundColor: hexToRgba(primary[500], 0.1),
     },
     {
       value: 'lowPrice',
@@ -67,8 +75,8 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
       dataKey: 'averageLowPrice',
       chartLabel: 'Average Low Price (per week)',
       yAxisLabel: 'Price ($)',
-      color: colors.primary[500],
-      backgroundColor: hexToRgba(colors.primary[500], 0.1),
+      color: primary[500],
+      backgroundColor: hexToRgba(primary[500], 0.1),
     },
     {
       value: 'highPrice',
@@ -76,8 +84,8 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
       dataKey: 'averageHighPrice',
       chartLabel: 'Average High Price (per week)',
       yAxisLabel: 'Price ($)',
-      color: colors.primary[500],
-      backgroundColor: hexToRgba(colors.primary[500], 0.1),
+      color: primary[500],
+      backgroundColor: hexToRgba(primary[500], 0.1),
     },
   ];
 
