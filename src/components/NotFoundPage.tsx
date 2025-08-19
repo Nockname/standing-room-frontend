@@ -10,7 +10,7 @@ function NotFoundPage() {
           <h2 className="text-3xl font-bold text-secondary-900 mb-6">Page Not Found</h2>
           
           <p className="text-xl text-secondary-700 mb-8 leading-relaxed">
-            I've a feeling we're not in Kansas anymore.
+            Toto, I've a feeling we're not in Kansas anymore.
           </p>
           
           {/* <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -120,9 +120,9 @@ function LandingPage() {
               </p>
               <ul className="text-secondary-600 text-sm space-y-2">
                 <li>• Same-day discounts up to 50% off</li>
-                <li>• Located in Times Square & Brooklyn</li>
-                <li>• Cash, credit cards, and digital payments accepted</li>
-                <li>• Shows availability updates throughout the day</li>
+                <li>• Only accepted in-person purchases</li>
+                <li>• Located in Times Square & Lincoln Center</li>
+                <li>• No refunds or exchanges</li>
               </ul>
             </div>
             
