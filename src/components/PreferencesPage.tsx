@@ -159,7 +159,7 @@ function PreferencesPage() {
                     />
                     <div className="flex-1">
                       <div className="font-semibold text-secondary-900">Broadway Shows</div>
-                      <div className="text-sm text-secondary-600">Get notifications for Broadway theater discounts and deals</div>
+                      <div className="text-sm text-secondary-600">Get notifications when new Broadway shows appear on TDF</div>
                     </div>
                   </label>
 
@@ -172,7 +172,7 @@ function PreferencesPage() {
                     />
                     <div className="flex-1">
                       <div className="font-semibold text-secondary-900">Off-Broadway Shows</div>
-                      <div className="text-sm text-secondary-600">Receive alerts for Off-Broadway theater discounts and special offers</div>
+                      <div className="text-sm text-secondary-600">Get notifications when new Off-Broadway shows appear on TDF</div>
                     </div>
                   </label>
 
@@ -185,14 +185,14 @@ function PreferencesPage() {
                     />
                     <div className="flex-1">
                       <div className="font-semibold text-secondary-900">Off-Off-Broadway Shows</div>
-                      <div className="text-sm text-secondary-600">Get notified about experimental and emerging theater discounts</div>
+                      <div className="text-sm text-secondary-600">Get notifications when new Off-Off-Broadway shows appear on TDF</div>
                     </div>
                   </label>
                 </div>
               </div>
 
               {/* Frequency */}
-              <div className="mb-8">
+              {/* <div className="mb-8">
                 <h3 className="text-xl font-bold text-secondary-900 mb-4">Notification Frequency</h3>
                 <div className="space-y-2">
                   {[
@@ -216,7 +216,7 @@ function PreferencesPage() {
                     </label>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">

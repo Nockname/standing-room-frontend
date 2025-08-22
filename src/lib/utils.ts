@@ -66,8 +66,6 @@ export function parseNYString(utcTimestamp: string): string {
     return parseNYDate(new Date(utcTimestamp));
 }
 
-
-
 /**
  * Get date range of data from (at most) four months ago to tomorrow for filtering based on environment and configuration
  */
@@ -168,16 +166,25 @@ export function shortenShowTimeLabel(showTime?: string): string {
 
 
 /**
- * Formats a date string into a human-readable format (e.g., "Jan 1, 2024").
+ * Formats a date string into a long format (e.g., "January 1, 2024"), medium format (e.g., "Jan 1, 2024") or short format (e.g., "1/1/24").
  *
- * @param dateString - The date string to format.
- * @returns The formatted date string in "MMM D, YYYY" format.
+ * @param dateString - The date string to format, with time zone information.
+ * @returns The formatted date string in "MMM D, YYYY" format or "M/D/YY" format.
  */
-export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-};
+export function formatDate(dateString: string | undefined, length: 'short' | 'medium' | 'long'): string {
+    if (!dateString) return 'Unknown';
+
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
+
+    if (length === 'short') {
+        return date.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+    }
+
+    return date.toLocaleDateString('en-US', {
+        month: length === 'long' ? 'long' : 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'America/New_York'
+      });
+}

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Show, DayOfWeek } from '../types';
 import { DollarSign, Percent, Clock, TrendingUp, HelpCircle } from 'lucide-react';
-import { shortenDayName, shortenShowTimeLabel } from '../lib/utils';
+import { shortenDayName, shortenShowTimeLabel, formatDate } from '../lib/utils';
 
 interface ShowCardProps {
   show: Show;
@@ -91,16 +91,6 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
     if (percentage >= 60) return 'text-warning-900 bg-warning-400 border-warning-600';
     if (percentage >= 40) return 'text-warning-900 bg-warning-300 border-warning-500';
     return 'text-error-900 bg-error-200 border-error-400';
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    
-    // Handle both timestamp format (overall last seen) and date format (day-specific performance date)
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Unknown';
-    
-    return date.toLocaleDateString();
   };
 
   return (
@@ -209,7 +199,7 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
               <span className="text-sm text-neutral-600">Last Seen</span>
             </div>
             <span className="text-sm text-neutral-900">
-              {formatDate(show.last_seen)}
+              {formatDate(show.last_seen, 'short')}
             </span>
           </div>
         )}

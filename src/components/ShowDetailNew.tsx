@@ -1,3 +1,8 @@
+import { Show } from '../types';
+import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
+import { primary, secondary, accent } from '../lib/colors';
+import ReviewPreview from './ReviewPreview';
+import { formatDate } from '../lib/utils';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, ChevronDown } from 'lucide-react';
@@ -15,10 +20,6 @@ import {
   ArcElement,
   Filler,
 } from 'chart.js';
-import { Show } from '../types';
-import { getShowDetails, getShowDiscountHistory, getShowSelloutTimes } from '../lib/supabase';
-import { primary, secondary, accent } from '../lib/colors';
-import ReviewPreview from './ReviewPreview';
 
 // Register Chart.js components
 ChartJS.register(
@@ -134,20 +135,6 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
       </div>
     );
   }
-
-  // Helper function to format date safely
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return null;
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch {
-      return dateString;
-    }
-  };
 
   // // Calculate day-of-week availability for this show
   // const dayAvailability = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -417,7 +404,7 @@ const ShowDetailNew: React.FC<ShowDetailProps> = () => {
                   )}
                   {show.last_seen && (
                     <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-neutral-100 text-neutral-700">
-                    Last seen: {formatDate(show.last_seen)}
+                    Last seen: {formatDate(show.last_seen, 'long')}
                   </span>
                   )}
                   {show.availableToday && (

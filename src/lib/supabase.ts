@@ -20,181 +20,199 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
  * Subscribe to notifications using passwordless magic link
  */
 export async function subscribeToNotifications(email: string, preferences = { broadway: true, offBroadway: false, offOffBroadway: false, frequency: 'immediate' }) {
-  try {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        data: {
-          subscription_preferences: preferences,
-          subscribed_at: new Date().toISOString(),
-        },
-        emailRedirectTo: `${window.location.origin}/tdf/preferences?verified=true`
-      }
-    });
+    try {
+        const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+                data: {
+                    subscription_preferences: preferences,
+                    subscribed_at: new Date().toISOString(),
+                },
+                emailRedirectTo: `${window.location.origin}/tdf/preferences?verified=true`
+            }
+        });
 
-    if (error) throw error;
+        if (error) throw error;
 
-    return {
-      success: true,
-      message: 'Please check your email for a magic link to confirm your subscription.',
-      needsVerification: true
-    };
+        return {
+            success: true,
+            message: 'Please check your email for a magic link to confirm your subscription.',
+            needsVerification: true
+        };
 
-  } catch (error: any) {
-    console.error('Subscription error:', error);
-    return {
-      success: false,
-      message: error.message || 'Failed to subscribe. Please try again.',
-      needsVerification: false
-    };
-  }
+    } catch (error: any) {
+        console.error('Subscription error:', error);
+        return {
+            success: false,
+            message: error.message || 'Failed to subscribe. Please try again.',
+            needsVerification: false
+        };
+    }
 }
 
 /**
  * Update user subscription preferences
  */
 export async function updateSubscriptionPreferences(preferences: { 
-  broadway?: boolean; 
-  offBroadway?: boolean; 
-  offOffBroadway?: boolean;
-  frequency?: 'immediate' | 'daily' | 'weekly';
+    broadway?: boolean; 
+    offBroadway?: boolean; 
+    offOffBroadway?: boolean;
+    frequency?: 'immediate' | 'daily' | 'weekly';
 }) {
-  try {
-    const { data, error } = await supabase.auth.updateUser({
-      data: {
-        subscription_preferences: preferences,
-        updated_at: new Date().toISOString(),
-      }
-    });
+    try {
+        const { data, error } = await supabase.auth.updateUser({
+            data: {
+                subscription_preferences: preferences,
+                updated_at: new Date().toISOString(),
+            }
+        });
 
-    if (error) throw error;
+        if (error) throw error;
 
-    return {
-      success: true,
-      message: 'Preferences updated successfully!',
-      user: data.user
-    };
+        return {
+            success: true,
+            message: 'Preferences updated successfully!',
+            user: data.user
+        };
 
-  } catch (error: any) {
-    console.error('Update preferences error:', error);
-    return {
-      success: false,
-      message: error.message || 'Failed to update preferences. Please try again.'
-    };
-  }
+    } catch (error: any) {
+        console.error('Update preferences error:', error);
+        return {
+            success: false,
+            message: error.message || 'Failed to update preferences. Please try again.'
+        };
+    }
 }
 
 /**
  * Get user's current subscription preferences
  */
 export async function getUserPreferences() {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return {
-        success: false,
-        preferences: null,
-        message: 'User not authenticated'
-      };
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+            return {
+                success: false,
+                preferences: null,
+                message: 'User not authenticated'
+            };
+        }
+
+        const preferences = user.user_metadata?.subscription_preferences || { 
+            broadway: true, 
+            offBroadway: false, 
+            offOffBroadway: false,
+            frequency: 'immediate' 
+        };
+
+        return {
+            success: true,
+            preferences,
+            user,
+            email: user.email
+        };
+
+    } catch (error: any) {
+        return {
+            success: false,
+            preferences: null,
+            message: error.message || 'Failed to get preferences'
+        };
     }
-
-    const preferences = user.user_metadata?.subscription_preferences || { 
-      broadway: true, 
-      offBroadway: false, 
-      offOffBroadway: false,
-      frequency: 'immediate' 
-    };
-
-    return {
-      success: true,
-      preferences,
-      user,
-      email: user.email
-    };
-
-  } catch (error: any) {
-    return {
-      success: false,
-      preferences: null,
-      message: error.message || 'Failed to get preferences'
-    };
-  }
 }
 
 /**
  * Check if user is currently authenticated and verified
  */
 export async function checkAuthStatus() {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return {
-      isAuthenticated: !!user,
-      isVerified: !!user?.email_confirmed_at,
-      user
-    };
-  } catch (error) {
-    return {
-      isAuthenticated: false,
-      isVerified: false,
-      user: null
-    };
-  }
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        return {
+            isAuthenticated: !!user,
+            isVerified: !!user?.email_confirmed_at,
+            user
+        };
+    } catch (error) {
+        return {
+            isAuthenticated: false,
+            isVerified: false,
+            user: null
+        };
+    }
 }
 
 /**
  * Get the current authenticated user
  */
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
 }
 
 /**
  * Sign out the current user
  */
 export async function signOut() {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      return {
-        success: false,
-        message: error.message
-      };
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            return {
+                success: false,
+                message: error.message
+            };
+        }
+        return {
+            success: true,
+            message: 'Successfully signed out'
+        };
+    } catch (error: any) {
+        return {
+            success: false,
+            message: error.message || 'Unknown error occurred'
+        };
     }
-    return {
-      success: true,
-      message: 'Successfully signed out'
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || 'Unknown error occurred'
-    };
-  }
 }
 
 /* ------------- GENERAL FETCHING METHODS ------------- */
 
 /**
- * Get all show IDs from the database
+ * Get all show IDs from the database, with daily caching
  */
 async function getAllShowIds(): Promise<number[]> {
+
+    // Check if we have valid cached data
+    const cached = getCachedData(await getCacheKey(`getAllShowIds`));
+    if (cached) {
+        return cached;
+    }
+
     const { data, error } = await supabase
         .from('Show Information')
-        .select('show_id');
+        .select('show_id')
+        .eq('is_open', true);
 
     if (error) {
         throw new Error(`Error fetching show ids: ${error.message}`);
     }
 
-    return data ? data.map((show: { show_id: number }) => show.show_id) : [];
+    const result = data ? data.map((show: { show_id: number }) => show.show_id) : []
+
+    setCachedData(await getCacheKey(`getAllShowIds`), result);
+    return result;
 }
 
 /**
- * Get basic show information by ID
+ * Get basic show information by ID, with daily caching
  */
 async function getShowInfo(showId: number) {
+    
+    // Check if we have valid cached data
+    const cached = getCachedData(await getCacheKey(`getShowInfo-${showId}`));
+    if (cached) {
+        return cached;
+    }
+
     const { data, error } = await supabase
         .from('Show Information')
         .select('show_id, show_name, is_broadway, theater, nyt_review')
@@ -205,15 +223,32 @@ async function getShowInfo(showId: number) {
         throw new Error(`Error fetching show info for ID ${showId}: ${error.message}`);
     }
 
+    setCachedData(await getCacheKey(`getShowInfo-${showId}`), data);
+
     return data;
 }
 
 /**
- * Get discounts for a specific show where performance date is within the date range
+ * Get discounts for a specific show where performance date is within the date range, with daily caching for None date-range
  */
-async function getShowDiscounts(showId: number, startDate?: string, endDate?: string, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
+async function getShowDiscounts(showId: number, dateRangeName: 'all_time' | 'last_week', showTimeFilter: 'all' | 'matinee' | 'evening' = 'all') {
 
-    const dateRange = startDate && endDate ? { startDate, endDate } : getTotalDateRange();
+    // Check if we have valid cached data
+    const cached = getCachedData(await getCacheKey(`getShowDiscounts-${showId}-${dateRangeName}-${showTimeFilter}`));
+    if (cached) {
+        return cached;
+    }
+
+    if (showTimeFilter != 'all') {
+        const allDiscounts = await getShowDiscounts(showId, dateRangeName, 'all');
+        const result: any[] = allDiscounts.filter((discount: any) => 
+            showTimeFilter === 'matinee' ? discount.is_matinee : !discount.is_matinee
+        );
+        setCachedData(await getCacheKey(`getShowDiscounts-${showId}-${dateRangeName}-${showTimeFilter}`), result);
+        return result;
+    }
+    
+    const dateRange = dateRangeName === 'last_week' ? getLastWeekDateRange() : getTotalDateRange();
     
     let query = supabase
         .from(discountDatabase)
@@ -222,12 +257,6 @@ async function getShowDiscounts(showId: number, startDate?: string, endDate?: st
         .gte('performance_date', dateRange.startDate)
         .lte('performance_date', dateRange.endDate);
 
-    // Apply show time filter
-    if (showTimeFilter === 'matinee') {
-        query = query.eq('is_matinee', true);
-    } else if (showTimeFilter === 'evening') {
-        query = query.eq('is_matinee', false);
-    }
 
     const { data, error } = await query.order('performance_date', { ascending: true });
 
@@ -235,7 +264,10 @@ async function getShowDiscounts(showId: number, startDate?: string, endDate?: st
         throw new Error(`Error fetching discounts for show ${showId}: ${error.message}`);
     }
 
-    return data || [];
+    const result = data || [];
+    
+    setCachedData(await getCacheKey(`getShowDiscounts-${showId}-${dateRangeName}-${showTimeFilter}`), result);
+    return result;
 }
 
 
@@ -275,11 +307,11 @@ function calculateShowStatistics(discounts: any[]) {
     );
     const uniqueDays = new Set([...createdAtDays, ...lastAvailableDays]);
     const availabilityFrequency = Math.min(uniqueDays.size / totalDays, 1);
-    
-    const lastSeen = discounts.length > 0 
+
+    const lastSeen = discounts.length > 0
         ? discounts
-            .filter(d => d.performance_date)
-            .sort((a, b) => new Date(b.performance_date).getTime() - new Date(a.performance_date).getTime())[0]?.performance_date
+            .filter(d => d.last_available_time)
+            .sort((a, b) => new Date(b.last_available_time).getTime() - new Date(a.last_available_time).getTime())[0].last_available_time
         : undefined;
 
     // Calculate day-of-week statistics
@@ -337,9 +369,27 @@ function isShowAvailableToday(discounts: any[]): boolean {
  * Get comprehensive show data with calculated statistics
  */
 async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show> {
+
+    // Check if we have valid cached data
+    const cached = getCachedData(await getCacheKey(`getShowWithStatistics-${showId}-${showTimeFilter}`));
+    if (cached) {
+        if (cached.availableToday) {
+            return cached;
+        }
+
+        // Recalculate availableToday for cached data and set cache if now is True
+        const discounts = await getShowDiscounts(showId, 'all_time', showTimeFilter);
+        cached.availableToday = isShowAvailableToday(discounts);
+        if (cached.availableToday) {
+            setCachedData(await getCacheKey(`getShowWithStatistics-${showId}-${showTimeFilter}`), cached);
+        }
+    
+        return cached;
+    }
+
     const [showInfo, discounts] = await Promise.all([
         getShowInfo(showId),
-        getShowDiscounts(showId, undefined, undefined, showTimeFilter)
+        getShowDiscounts(showId, 'all_time', showTimeFilter)
     ]);
 
     const stats = calculateShowStatistics(discounts);
@@ -366,7 +416,7 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
         };
     });
 
-    return {
+    const result = {
         id: showInfo.show_id.toString(),
         title: showInfo.show_name.trim(),
         theater: showInfo.theater ? showInfo.theater.trim() : undefined,
@@ -379,6 +429,9 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
         availableToday: isShowAvailableToday(discounts),
         reviews: showInfo.nyt_review
     };
+
+    setCachedData(await getCacheKey(`getShowWithStatistics-${showId}-${showTimeFilter}`), result);
+    return result;
 }
 
 
@@ -388,12 +441,6 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
  * Get all shows with their statistics (with localStorage caching)
  */
 export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show[]> {
-    const cached = getCachedData(await getCacheKey(`getAllShowsWithStatistics-${showTimeFilter}`));
-
-    // Check if we have valid cached data
-    if (cached) {
-        return cached;
-    }
     
     console.log(`Fetching fresh data for ${showTimeFilter}...`);
     
@@ -414,9 +461,6 @@ export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee
         
         results.push(...batchResults.filter(show => show !== null) as Show[]);
     }
-    
-    // Cache the results in localStorage
-    setCachedData(await getCacheKey(`getAllShowsWithStatistics-${showTimeFilter}`), results);
 
     return results;
 }
@@ -573,13 +617,11 @@ export const getTopShowsByRecentAppearances = async (
   nonBroadway: ShowWithRecentActivity[];
 }> => {
 
-  const { startDate, endDate } = getLastWeekDateRange();
-
   // Calculate a recent activity score for each show
   // Fetch discounts for all shows in parallel and calculate recentActivityScore
   const scores = await Promise.all(
     shows.map(async show => {
-      const discounts = await getShowDiscounts(Number(show.id), startDate, endDate, showTimeFilter);
+      const discounts = await getShowDiscounts(Number(show.id), 'last_week', showTimeFilter);
       return {
         ...show,
         recentActivityScore: discounts.length
@@ -681,8 +723,6 @@ export async function preload() {
         // Run all data fetches in parallel
         await Promise.all([
           getAllShowsWithStatistics('all'),
-          getAllShowsWithStatistics('matinee'),
-          getAllShowsWithStatistics('evening'),
           getWeeklyDiscountTrends()
         ]);
       } catch (error) {

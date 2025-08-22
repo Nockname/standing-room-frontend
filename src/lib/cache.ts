@@ -4,16 +4,16 @@ import { parseNYDate } from "./utils.ts";
  * Cache structure for storing show statistics
  */
 interface Cache {
-  data: any;
-  timestamp: number;
+    data: any;
+    timestamp: number;
 }
 
 /**
  * Check if cache is valid (local date is the same as local cache date)
  */
 function isCacheValid(cache: Cache): boolean {
-  const now = Date.now();
-  return parseNYDate(new Date(now)) == parseNYDate(new Date(cache.timestamp));
+    const now = Date.now();
+    return parseNYDate(new Date(now)) == parseNYDate(new Date(cache.timestamp));
 }
 
 /**
@@ -31,22 +31,22 @@ export async function getCacheKey(name: string): Promise<string> {
  * Get cached data from localStorage
  */
 export function getCachedData(cacheKey: string): any | null {
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (!cached) return null;
+    try {
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return null;
 
-    const parsedCache: Cache = JSON.parse(cached);
+        const parsedCache: Cache = JSON.parse(cached);
 
-    if (!isCacheValid(parsedCache)) {
-      localStorage.removeItem(cacheKey);
-      return null;
+        if (!isCacheValid(parsedCache)) {
+            localStorage.removeItem(cacheKey);
+            return null;
+        }
+
+        return parsedCache.data;
+    } catch (error) {
+        console.warn('Error reading cache from localStorage:', error);
+        return null;
     }
-
-    return parsedCache.data;
-  } catch (error) {
-    console.warn('Error reading cache from localStorage:', error);
-    return null;
-  }
 }
 
 
@@ -54,13 +54,13 @@ export function getCachedData(cacheKey: string): any | null {
  * Store data in localStorage cache
  */
 export function setCachedData(cacheKey: string, data: any): void {
-  try {
-    const cacheData: Cache = {
-      data: data,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-  } catch (error) {
-    console.warn('Error storing cache in localStorage:', error);
-  }
+    try {
+        const cacheData: Cache = {
+            data: data,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+        console.warn('Error storing cache in localStorage:', error);
+    }
 }
