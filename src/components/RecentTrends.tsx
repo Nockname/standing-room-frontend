@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler } from 'chart.js';
 import { primary } from '../lib/colors';
+import StandardDropdown from './StandardDropdown';
 
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
 
@@ -89,6 +90,12 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
     },
   ];
 
+  // Convert configs to dropdown options
+  const dropdownOptions = statisticConfigs.map(config => ({
+    value: config.value,
+    label: config.label
+  }));
+
   const currentConfig = statisticConfigs.find(config => config.value === selectedStatistic) || statisticConfigs[0];
 
   const data = {
@@ -122,24 +129,11 @@ const RecentTrends: React.FC<RecentTrendsProps> = ({ dailyDiscounts }) => {
     <div className="card">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-neutral-900">Long Term Trends</h3>
-        <div className="relative">
-          <select
-            value={selectedStatistic}
-            onChange={(e) => setSelectedStatistic(e.target.value as StatisticType)}
-            className="appearance-none bg-white border border-neutral-500 rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          >
-            {statisticConfigs.map(config => (
-              <option key={config.value} value={config.value}>
-                {config.label}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-700">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-            </svg>
-          </div>
-        </div>
+        <StandardDropdown
+          options={dropdownOptions}
+          value={selectedStatistic}
+          onChange={(value) => setSelectedStatistic(value as StatisticType)}
+        />
       </div>
       <Line data={data} options={options} height={160} />
     </div>

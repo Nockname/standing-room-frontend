@@ -5,7 +5,7 @@ import LandingPage from './components/LandingPage';
 import TKTSPage from './components/TKTSPage';
 import TDFPage from './components/TDFPage';
 import PreferencesPage from './components/PreferencesPage';
-import ShowDetailNew from './components/ShowDetailNew';
+import ShowDetail from './components/ShowDetail';
 import NotFoundPage from './components/NotFoundPage';
 
 // Component to scroll to top on route change
@@ -30,7 +30,7 @@ function App() {
           <Route path="/tkts" element={<TKTSPage />} />
           <Route path="/tdf" element={<TDFPage />} />
           <Route path="/tdf/preferences" element={<PreferencesPage />} />
-          <Route path="/show/:showId" element={<ShowDetailNew />} />
+          <Route path="/show/:showId" element={<ShowDetail />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Bell, Mail, CheckCircle, Shield, AlertCircle, LogOut } from 'lucide-react';
+import { Bell, Mail, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import { subscribeToNotifications, checkAuthStatus, signOut } from '../lib/supabase';
 
 function TDFPage() {
@@ -75,7 +75,7 @@ function TDFPage() {
   // Show loading screen while checking authentication
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
+      <div className="h-[calc(100vh-4rem)] bg-secondary-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
       </div>
     );
@@ -83,7 +83,7 @@ function TDFPage() {
 
   if (subscribed) {
     return (
-      <div className="min-h-screen bg-secondary-50 flex items-center justify-center px-6">
+      <div className="h-[calc(100vh-4rem)] bg-secondary-50 flex items-center justify-center px-6">
         <div className="max-w-2xl mx-auto text-center">
           <div className="bg-white rounded-3xl p-12 border border-secondary-200 shadow-lg">
             <div className="bg-accent-700 w-20 h-20 rounded-full flex items-center justify-center mb-8 mx-auto">
@@ -151,7 +151,7 @@ function TDFPage() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50">
+    <div className="h-[calc(100vh-5rem)] bg-secondary-50">
       <div className="px-6 py-12">
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
@@ -209,7 +209,6 @@ function TDFPage() {
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                   ) : (
                     <>
-                      <Bell className="w-6 h-6" />
                       <span>Get TDF Notifications</span>
                     </>
                   )}
@@ -217,7 +216,6 @@ function TDFPage() {
               </form>
               
               <div className="flex items-center justify-center space-x-2 mt-6 text-sm text-secondary-600">
-                <Shield className="w-4 h-4" />
                 <span>We respect your privacy. Unsubscribe anytime.</span>
               </div>
             </div>

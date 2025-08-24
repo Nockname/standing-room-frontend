@@ -3,7 +3,6 @@ import RecentTrends from './RecentTrends';
 import BestDaysBarGraph from './BestDaysBarGraph';
 import { getWeeklyDiscountTrends, getTopShowsByRecentAppearances } from '../lib/supabase';
 import { Show } from '../types';
-import { Award } from 'lucide-react';
 import { getOverallStats } from '../lib/supabase';
 
 interface DashboardProps {
@@ -84,10 +83,9 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
         </div>
       </div>
 
-      {/* Top Shows by Recent Appearances - Combined - Hidden on small screens */}
-      <div className="hidden lg:block card relative">
+      {/* Top Shows by Recent Appearances - Combined */}
+      <div className="card relative">
         <h3 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-          <Award className="h-5 w-5 text-warning-500" />
           Top Shows by Performances on TKTS Last Week
         </h3>
         
@@ -193,8 +191,8 @@ const Dashboard: React.FC<DashboardProps> = ({ shows }) => {
         </div>
       </div>
 
-      {/* Best Days and Trends Side by Side - Hidden on small screens */}
-      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Best Days and Trends Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Best Days to Visit Bar Graph */}
         <BestDaysBarGraph />
         

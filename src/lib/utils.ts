@@ -33,7 +33,7 @@ export const dayOfWeekCounts: Record<string, number> = {
  * @param dateStr The date string to parse.
  * @returns Date object in local time, or undefined if invalid.
  */
-function parseLocalDate(dateStr: string): Date {
+export function parseLocalDate(dateStr: string): Date {
     const [year, month, day] = dateStr.split('-').map(Number);
     if (!year || !month || !day) return new Date(NaN);
     return new Date(year, month - 1, day);
@@ -46,10 +46,9 @@ function parseLocalDate(dateStr: string): Date {
  * @param utcDate The UTC date.
  * @returns Date string in 'YYYY-M-D' format in New York time.
  */
-export function parseNYDate(utcDate: Date): string {
-    // Convert to NY time
+export function parseNYDate(utcDate: Date, timeZone: string | undefined = 'America/New_York'): string {
     const nyDate = new Date(
-        utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' })
+        utcDate.toLocaleString('en-US', { timeZone })
     );
 
     // Format as 'YYYY-M-D'
@@ -105,6 +104,33 @@ export function getLastWeekDateRange(): { startDate: string; endDate: string } {
     };
 }
 
+/**
+ * Gets the ISO formatted date of the first day in the week.
+ * @param date - The date in date format.
+ * @returns The ISO formatted date string of the first day in the week (Sunday).
+ */
+export function getWeekKeyOfDate(date: Date): string {
+    const dayOfWeek = date.getDay();
+    const diff = (dayOfWeek + 7) % 7;
+
+    const targetDate = new Date(date);
+    targetDate.setDate(date.getDate() - diff);
+
+    return parseNYDate(targetDate, undefined);
+}
+
+/**
+ * Gets the ISO formatted date of the first day in the week.
+ * @param date - The date string in 'YYYY-M-D' format.
+ * @returns The ISO formatted date string of the first day in the week (Sunday).
+ */
+export function getWeekKeyOfString(date: string): string {
+    // console.log(`Calculating week key for date: ${date}`);
+    const parsedDate = parseLocalDate(date);
+
+    return getWeekKeyOfDate(parsedDate);
+}
+
 /* ------------- GENERIC UTILS ------------- */
 
 
@@ -115,12 +141,19 @@ export function getLastWeekDateRange(): { startDate: string; endDate: string } {
  * @returns The formatted currency string in USD (e.g., "$1,234").
  */
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount);
+};
+
+export const getAvailabilityColor = (percentage: number) => {
+    if (percentage >= 80) return 'text-warning-900 bg-warning-500 border-warning-700';
+    if (percentage >= 60) return 'text-warning-900 bg-warning-400 border-warning-600';
+    if (percentage >= 40) return 'text-warning-900 bg-warning-300 border-warning-500';
+    return 'text-error-900 bg-error-200 border-error-400';
 };
 
 /**
@@ -131,7 +164,7 @@ export const formatCurrency = (amount: number): string => {
  * @returns The formatted percentage string (e.g., "12.3%").
  */
 export const formatPercentage = (value: number, decimals: number = 1): string => {
-  return `${value.toFixed(decimals)}%`;
+    return `${value.toFixed(decimals)}%`;
 };
 
 /**

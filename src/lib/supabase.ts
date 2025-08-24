@@ -371,7 +371,7 @@ function isShowAvailableToday(discounts: any[]): boolean {
 async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show> {
 
     // Check if we have valid cached data
-    const cached = getCachedData(await getCacheKey(`getShowWithStatistics-${showId}-${showTimeFilter}`));
+    let cached = getCachedData(await getCacheKey(`getShowWithStatistics-${showId}-${showTimeFilter}`));
     if (cached) {
         if (cached.availableToday) {
             return cached;
@@ -441,8 +441,6 @@ async function getShowWithStatistics(showId: number, showTimeFilter: 'all' | 'ma
  * Get all shows with their statistics (with localStorage caching)
  */
 export async function getAllShowsWithStatistics(showTimeFilter: 'all' | 'matinee' | 'evening' = 'all'): Promise<Show[]> {
-    
-    console.log(`Fetching fresh data for ${showTimeFilter}...`);
     
     const showIds = await getAllShowIds();
     
@@ -515,10 +513,8 @@ export async function getWeeklyDiscountTrends() {
 
     // Check if we have valid cached data
     if (cached) {
-        console.log('Using cached weekly discount trends data');
         return cached;
     }
-    console.log('Fetching fresh weekly discount trends data');
 
     try {
         const { data: weeklyStats, error } = await supabase

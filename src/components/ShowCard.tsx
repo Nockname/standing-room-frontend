@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Show, DayOfWeek } from '../types';
 import { DollarSign, Percent, Clock, TrendingUp, HelpCircle } from 'lucide-react';
-import { shortenDayName, shortenShowTimeLabel, formatDate } from '../lib/utils';
+import { shortenDayName, shortenShowTimeLabel, formatDate, getAvailabilityColor } from '../lib/utils';
 
 interface ShowCardProps {
   show: Show;
@@ -84,13 +84,6 @@ const ShowCard: React.FC<ShowCardProps> = ({ show, selectedDay, showTime, isFilt
     const dayLabel = selectedDay ? selectedDay : 'day';
 
     return `The percentage of ${dayLabel}s in the last four months when ${showTimeLabel} TKTS tickets were available for ${show.title}.`;
-  };
-
-  const getAvailabilityColor = (percentage: number) => {
-    if (percentage >= 80) return 'text-warning-900 bg-warning-500 border-warning-700';
-    if (percentage >= 60) return 'text-warning-900 bg-warning-400 border-warning-600';
-    if (percentage >= 40) return 'text-warning-900 bg-warning-300 border-warning-500';
-    return 'text-error-900 bg-error-200 border-error-400';
   };
 
   return (

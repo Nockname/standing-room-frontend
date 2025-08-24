@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Ticket, Bell, TrendingUp, DollarSign, Clock, Star } from 'lucide-react';
+import { Ticket, Bell } from 'lucide-react';
 import { preload } from '../lib/supabase';
 
 function LandingPage() {
@@ -7,10 +7,11 @@ function LandingPage() {
   preload();
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="relative px-6 pt-20 pb-16 text-center">
+    <div className="bg-secondary-50">
+      {/* Hero Section - Full Screen minus header */}
+      <div className="relative overflow-hidden min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="relative px-6 text-center w-full">
+          <br></br>
           <div className="max-w-4xl mx-auto">
             {/* Main Headline */}
             <h1 className="text-6xl md:text-7xl font-bold text-secondary-900 mb-6 leading-tight">
@@ -28,12 +29,8 @@ function LandingPage() {
               Find in-depth analytics on TKTS discounts and receive instant notifications when new shows are available through the TDF Membership.
             </p>
 
-            <br></br>
-            
-
-            <div className="h-8" />
             {/* Feature Cards */}
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {/* TKTS Card */}
               <Link 
                 to="/tkts" 
@@ -51,15 +48,12 @@ function LandingPage() {
                   </p>
                   <div className="flex items-center justify-center space-x-4 text-sm text-secondary-600">
                     <div className="flex items-center space-x-1">
-                      <TrendingUp className="w-4 h-4" />
                       <span>Analytics</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <DollarSign className="w-4 h-4" />
                       <span>Live Discounts</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Clock className="w-4 h-4" />
                       <span>Timing Insights</span>
                     </div>
                   </div>
@@ -82,27 +76,26 @@ function LandingPage() {
                   </p>
                   <div className="flex items-center justify-center space-x-4 text-sm text-secondary-600">
                     <div className="flex items-center space-x-1">
-                      <Bell className="w-4 h-4" />
                       <span>Instant Alerts</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4" />
                       <span>All Venues</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Clock className="w-4 h-4" />
                       <span>Early Access</span>
                     </div>
                   </div>
                 </div>
               </Link>
+              <br></br>
             </div>
+            
           </div>
         </div>
       </div>
       
       {/* Educational Sections */}
-      <div className="relative bg-white border-t border-secondary-200">
+      <div className="min-h-screen relative bg-white border-t border-secondary-200 flex items-center justify-center">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-secondary-900 mb-6">Understanding the Theatre Development Fund</h2>

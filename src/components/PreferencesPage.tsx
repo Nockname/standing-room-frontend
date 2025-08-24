@@ -69,7 +69,7 @@ function PreferencesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
+      <div className="h-[calc(100vh-4rem)] bg-secondary-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
       </div>
     );
@@ -77,7 +77,7 @@ function PreferencesPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-secondary-50 flex items-center justify-center px-6">
+      <div className="h-[calc(100vh-4rem)] bg-secondary-50 flex items-center justify-center px-6">
         <div className="max-w-2xl mx-auto text-center">
           <div className="bg-white rounded-3xl p-12 border border-secondary-200 shadow-lg">
             <div className="bg-warning-500 w-20 h-20 rounded-full flex items-center justify-center mb-8 mx-auto">

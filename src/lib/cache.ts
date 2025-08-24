@@ -1,4 +1,4 @@
-import { parseNYDate } from "./utils.ts";
+import { parseNYDate } from "./utils";
 
 /**
  * Cache structure for storing show statistics
@@ -9,11 +9,13 @@ interface Cache {
 }
 
 /**
- * Check if cache is valid (local date is the same as local cache date)
+ * Check if cache is valid (local date and local cache date are an hour apart and on the same date)
  */
 function isCacheValid(cache: Cache): boolean {
-    const now = Date.now();
-    return parseNYDate(new Date(now)) == parseNYDate(new Date(cache.timestamp));
+    const now = new Date(Date.now());
+    const cacheDate = new Date(cache.timestamp);
+    
+    return now.getTime() - cacheDate.getTime() < 60 * 60 * 1000 && parseNYDate(now) == parseNYDate(cacheDate);
 }
 
 /**
