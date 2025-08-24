@@ -8,6 +8,10 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://exgwstrejyolhv
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV4Z3dzdHJlanlvbGh2d3R6aWpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyOTgwMjgsImV4cCI6MjA2ODg3NDAyOH0.w0-FOpxjJnTLYxyS5frE9olOh9LnJVJ1k_zYeYE7bwE';
 const discountDatabase = import.meta.env.VITE_DISCOUNT_DATABASE || 'TKTS Discounts';
 
+const duplicateShowIds: Record<number, number[]> = {
+    109: [109, 104, 103, 83] // The Office
+};
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
@@ -249,11 +253,16 @@ async function getShowDiscounts(showId: number, dateRangeName: 'all_time' | 'las
     }
     
     const dateRange = dateRangeName === 'last_week' ? getLastWeekDateRange() : getTotalDateRange();
+
+    let showIds = [showId];
+    if (showId in duplicateShowIds) {
+        showIds = duplicateShowIds[showId];
+    }
     
     let query = supabase
         .from(discountDatabase)
         .select('*')
-        .eq('show_id', showId)
+        .in('show_id', showIds)
         .gte('performance_date', dateRange.startDate)
         .lte('performance_date', dateRange.endDate);
 
