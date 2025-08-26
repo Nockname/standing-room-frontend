@@ -324,7 +324,7 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
                 <div className="bg-white border border-neutral-200 rounded-xl p-8">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-2xl font-semibold text-neutral-900">
-                      Discount Consistency
+                      Discount Inconsistency
                     </h3>
                     <StandardDropdown
                       options={durationOptions}

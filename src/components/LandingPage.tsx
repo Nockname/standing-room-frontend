@@ -122,9 +122,11 @@ function LandingPage() {
             {/* What is the TDF Membership */}
             <div className="bg-white rounded-3xl p-8 border border-secondary-200 shadow-lg">
               <h3 className="text-2xl font-bold text-primary-600 mb-4">What is the TDF Membership?</h3>
-              <p className="text-secondary-700 text-lg leading-relaxed mb-4">
-                TDF Membership provides exclusive access to heavily discounted tickets for theater, dance, and music performances.
-              </p>
+                <p className="text-secondary-700 text-lg leading-relaxed mb-4">
+                TDF Membership provides exclusive access to heavily discounted tickets for theater, dance, and music performances. Click <a href="https://www.tdf.org/discount-ticket-programs/tdf-membership/" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">
+                  here
+                </a> to become a member.
+                </p>
               <ul className="text-secondary-600 text-sm space-y-2">
                 <li>• All tickets under $60</li>
                 <li>• Access to shows not available at TKTS</li>
