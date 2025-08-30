@@ -301,8 +301,9 @@ function calculateShowStatistics(discounts: any[]) {
     }
 
     const averageDiscount = discounts.reduce((sum, d) => sum + (d.discount_percent || 0), 0) / discounts.length;
-    const averageLowPrice = discounts.reduce((sum, d) => sum + (d.low_price || 0), 0) / discounts.length;
-    const averageHighPrice = discounts.reduce((sum, d) => sum + (d.high_price || 0), 0) / discounts.length;
+    const averageLowPrice = discounts.reduce((sum, d) => sum + (d.low_price || 0), 0) / discounts.filter(d => d.low_price != null).length;
+
+    const averageHighPrice = discounts.reduce((sum, d) => sum + (d.high_price || 0), 0) / discounts.filter(d => d.high_price != null).length;
 
 
     // Calculate availability frequency, also known as overall availability

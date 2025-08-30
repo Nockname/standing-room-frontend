@@ -381,7 +381,13 @@ const ShowDetail: React.FC<ShowDetailProps> = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                            ${discount.low_price} - ${discount.high_price}
+                            {discount.low_price && discount.high_price
+                              ? `${discount.low_price} - ${discount.high_price}`
+                              : discount.low_price
+                              ? `${discount.low_price} - N/A`
+                              : discount.high_price
+                              ? `N/A - ${discount.high_price}`
+                              : 'Unknown'}
                           </td>
                         </tr>
                       ))}

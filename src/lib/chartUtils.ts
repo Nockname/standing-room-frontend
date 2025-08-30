@@ -30,8 +30,8 @@ export interface ShowDiscountData {
     count: number;
     performance_date: string;
     day_of_week: string;
-    low_price: number;
-    high_price: number;
+    low_price: number | null;
+    high_price: number | null;
     is_matinee: boolean;
     last_available_time?: string;
 }
